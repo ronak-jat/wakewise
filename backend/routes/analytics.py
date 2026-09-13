@@ -10,6 +10,18 @@ from sqlalchemy import desc, func
 from database import get_db
 from models import Alarm, ChallengeAttempt, User, AlarmSnoozeEvent
 from routes.auth import get_current_user
+from services.habit_score_service import (
+    calculate_habit_score_snapshot,
+    calculate_sleep_adherence_snapshot,
+    get_habit_level,
+    get_habit_score_history,
+    record_user_activity,
+    update_user_sleep_schedule,
+)
+from services.sleep_quality_service import (
+    calculate_sleep_quality,
+    get_sleep_quality_level,
+)
 from services.personalization_service import (
     get_adaptive_recommendation,
     calculate_personalized_difficulty,
@@ -580,6 +592,111 @@ def build_behavioral_analytics(db: Session, user_id: int) -> Dict[str, Any]:
         "sleep_pattern": sleep_pattern,
         "insights": insights
     }
+
+
+@router.post("/activity")
+def post_user_activity(
+    payload: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Records meaningful device/application activity around target bedtime.
+    Estimates sleep start based on phone inactivity when continuous inactivity >= threshold.
+    """
+    res = record_user_activity(db, current_user.id)
+    return res
+
+
+@router.post("/sleep-schedule")
+def post_sleep_schedule(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Updates the user's target sleep schedule (target_bedtime, target_wake_time, inactivity_threshold_minutes).
+    """
+    target_bedtime = payload.get("target_bedtime")
+    target_wake_time = payload.get("target_wake_time")
+    inactivity_threshold = payload.get("inactivity_threshold_minutes", 30)
+
+    res = update_user_sleep_schedule(
+        db,
+        current_user.id,
+        target_bedtime=target_bedtime,
+        target_wake_time=target_wake_time,
+        inactivity_threshold_minutes=inactivity_threshold
+    )
+    return res
+
+
+@router.get("/habit-score")
+def get_habit_score(
+    period_days: int = 7,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the weighted habit score and component breakdown for the authenticated user for the requested period."""
+    snapshot = calculate_habit_score_snapshot(db, current_user.id, period_days=period_days)
+    return {
+        "habit_score": snapshot["habit_score"],
+        "level": snapshot["level"],
+        "breakdown": snapshot["breakdown"],
+        "weights": snapshot["weights"],
+        "insights": snapshot.get("insights", []),
+        "sleep_details": snapshot.get("sleep_details", {}),
+        "available_components": snapshot.get("available_components", {}),
+        "period_days": snapshot.get("period_days", period_days),
+    }
+
+
+@router.get("/habit-score/weekly")
+def get_habit_score_weekly(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the selected-period habit score and comparison against previous week."""
+    snapshot = calculate_habit_score_snapshot(db, current_user.id, period_days=7)
+    history = get_habit_score_history(db, current_user.id, days=14)
+    return {
+        "habit_score": snapshot["habit_score"],
+        "level": snapshot["level"],
+        "this_week": history["weekly_scores"].get("This Week", snapshot["habit_score"]),
+        "last_week": history["weekly_scores"].get("Last Week", 0.0),
+        "change": history["weekly_scores"].get("Change", 0.0),
+        "score_changes": history.get("score_changes", {}),
+        "daily_scores": history.get("daily_scores", []),
+    }
+
+
+@router.get("/habit-score/history")
+def get_habit_score_history_endpoint(
+    days: int = 14,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the daily and weekly habit score history including score changes."""
+    return get_habit_score_history(db, current_user.id, days=days)
+
+
+@router.get("/sleep-adherence")
+def get_sleep_adherence(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the latest sleep schedule adherence status, target schedule, and estimated sleep time."""
+    return calculate_sleep_adherence_snapshot(db, current_user.id)
+
+
+@router.get("/sleep-quality")
+def get_sleep_quality_analytics(
+    days: int = 7,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the 0-100 Sleep Quality score, level, component breakdown, and daily trends."""
+    return calculate_sleep_quality(db, current_user.id, days=days)
 
 
 @router.get("/behavioral")

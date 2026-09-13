@@ -16,6 +16,12 @@ from services.challenge_store import add_session, get_session, remove_session
 
 logger = logging.getLogger(__name__)
 
+def normalize_answer(val: Any) -> str:
+    if val is None:
+        return ""
+    return str(val).strip().lower().replace(" ", "")
+
+
 VERIFICATION_METHODS = [
     {
         "id": "puzzle_completion",
@@ -66,16 +72,6 @@ def get_verification_session_by_alarm(alarm_id: int, user_id: int) -> Optional[d
                 return session
     return None
 
-
-def normalize_answer(ans: str) -> str:
-    """Helper to clean and normalize answer strings for validation."""
-    if not ans:
-        return ""
-    clean = str(ans).strip().lower()
-    for prefix in ["a ", "an ", "the "]:
-        if clean.startswith(prefix):
-            clean = clean[len(prefix):].strip()
-    return clean
 
 
 def init_verification_session(

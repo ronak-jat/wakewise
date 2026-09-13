@@ -26,10 +26,20 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # Relationship to Alarms
+    target_bedtime = Column(String(10), nullable=True, default=None)
+    target_wake_time = Column(String(10), nullable=True, default=None)
+    phone_number = Column(String(30), nullable=True, default=None)
+    inactivity_threshold_minutes = Column(Integer, nullable=False, default=30)
+    last_meaningful_activity_at = Column(DateTime(timezone=True), nullable=True)
+    estimated_sleep_start = Column(DateTime(timezone=True), nullable=True)
+    estimated_sleep_end = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationship to Alarms and Activities
     alarms = relationship("Alarm", back_populates="user", cascade="all, delete-orphan")
     challenge_attempts = relationship("ChallengeAttempt", back_populates="user", cascade="all, delete-orphan")
     snooze_events = relationship("AlarmSnoozeEvent", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    notification_preferences = relationship("UserNotificationPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', role='{self.role}')>"
@@ -147,6 +157,111 @@ class AlarmSnoozeEvent(Base):
 
     def __repr__(self):
         return f"<AlarmSnoozeEvent(id={self.id}, user_id={self.user_id}, alarm_id={self.alarm_id}, snooze_count={self.snooze_count})>"
+
+
+class Notification(Base):
+    """
+    Requirement 11 Notification Model:
+    Stores user reminders, habit alerts, cognitive challenge prompts, progress updates, and platform announcements.
+    """
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    type = Column(String(50), nullable=False, index=True) # bedtime, wake_up, habit_alert, challenge, progress, platform_announcement
+    title = Column(String(255), nullable=False)
+    message = Column(String(2000), nullable=False)
+    priority = Column(String(20), nullable=False, default="normal") # low, normal, high, urgent
+    is_read = Column(Boolean, nullable=False, default=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    scheduled_for = Column(DateTime(timezone=True), nullable=True)
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    reference_type = Column(String(50), nullable=True) # alarm, habit, challenge, sleep, announcement, streak
+    reference_id = Column(String(100), nullable=True)
+    action_url = Column(String(255), nullable=True)
+    dedup_key = Column(String(255), nullable=True, index=True)
+    delivery_channel = Column(String(20), nullable=False, default="in_app") # in_app, email, sms, both
+    delivery_status = Column(String(20), nullable=False, default="delivered") # scheduled, sent, delivered, failed, cancelled
+    email_status = Column(String(30), nullable=True, default=None) # sent, delivered, failed, unconfigured, disabled
+    sms_status = Column(String(30), nullable=True, default=None) # sent, delivered, failed, unconfigured, disabled, no_phone
+
+    user = relationship("User", back_populates="notifications")
+
+    def __repr__(self):
+        return f"<Notification(id={self.id}, user_id={self.user_id}, type='{self.type}', title='{self.title}', is_read={self.is_read})>"
+
+
+class PlatformAnnouncement(Base):
+    """
+    Admin-controlled broadcast platform announcements.
+    """
+    __tablename__ = "platform_announcements"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    message = Column(String(3000), nullable=False)
+    priority = Column(String(20), nullable=False, default="normal") # low, normal, high, urgent
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    start_time = Column(DateTime(timezone=True), nullable=True)
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<PlatformAnnouncement(id={self.id}, title='{self.title}', active={self.is_active}, priority='{self.priority}')>"
+
+
+class UserNotificationPreference(Base):
+    """
+    User-configurable preferences controlling notification category delivery.
+    """
+    __tablename__ = "user_notification_preferences"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    bedtime_reminders = Column(Boolean, nullable=False, default=True)
+    wake_up_reminders = Column(Boolean, nullable=False, default=True)
+    habit_alerts = Column(Boolean, nullable=False, default=True)
+    challenge_reminders = Column(Boolean, nullable=False, default=True)
+    progress_notifications = Column(Boolean, nullable=False, default=True)
+    platform_announcements = Column(Boolean, nullable=False, default=True)
+    browser_notifications_enabled = Column(Boolean, nullable=False, default=False)
+
+    # Multi-Channel Delivery Matrix & Preferences
+    preferred_channel = Column(String(20), nullable=False, default="both") # email, sms, both, disabled
+    bedtime_email = Column(Boolean, nullable=False, default=True)
+    bedtime_sms = Column(Boolean, nullable=False, default=False)
+    wakeup_email = Column(Boolean, nullable=False, default=True)
+    wakeup_sms = Column(Boolean, nullable=False, default=True)
+    habit_email = Column(Boolean, nullable=False, default=True)
+    habit_sms = Column(Boolean, nullable=False, default=False)
+    challenge_email = Column(Boolean, nullable=False, default=True)
+    challenge_sms = Column(Boolean, nullable=False, default=False)
+    progress_email = Column(Boolean, nullable=False, default=True)
+    progress_sms = Column(Boolean, nullable=False, default=False)
+    announcement_email = Column(Boolean, nullable=False, default=True)
+    announcement_sms = Column(Boolean, nullable=False, default=False)
+
+    # Timing / Lead Times
+    bedtime_lead_minutes = Column(Integer, nullable=False, default=30)
+    wakeup_lead_minutes = Column(Integer, nullable=False, default=10)
+
+    # Report Delivery Settings
+    report_delivery_enabled = Column(Boolean, nullable=False, default=False)
+    report_delivery_channel = Column(String(20), nullable=False, default="email") # email, sms, both
+    report_delivery_frequency = Column(String(20), nullable=False, default="weekly") # weekly, monthly
+    report_delivery_type = Column(String(50), nullable=False, default="habit") # habit, wakeup, challenge, sleep, all
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="notification_preferences")
+
+    def __repr__(self):
+        return f"<UserNotificationPreference(user_id={self.user_id}, preferred_channel='{self.preferred_channel}', bedtime_email={self.bedtime_email}, wakeup_sms={self.wakeup_sms})>"
+
 
 
 

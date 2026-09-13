@@ -12,6 +12,7 @@ from models import User
 from schemas import (
     UserRegister, 
     UserResponse, 
+    UserProfileUpdate,
     RegisterSuccessResponse, 
     UserLogin, 
     GoogleOAuthRequest,
@@ -19,6 +20,8 @@ from schemas import (
 )
 from security import hash_password, verify_password, create_access_token
 from config import settings
+from services.habit_score_service import calculate_habit_score_snapshot
+from services.sleep_quality_service import calculate_sleep_quality
 
 # Optional Google Auth library verification
 try:
@@ -59,7 +62,7 @@ def register_user(payload: UserRegister, db: Session = Depends(get_db)):
             name=payload.name.strip(),
             email=payload.email.lower().strip(),
             password=hashed_pwd,
-            role=payload.role.strip() if payload.role else "USER",
+            role="USER",
             provider=payload.provider.strip() if payload.provider else "LOCAL"
         )
         
@@ -214,11 +217,36 @@ def google_oauth_login(payload: GoogleOAuthRequest, db: Session = Depends(get_db
 @router.get("/users", response_model=List[UserResponse], summary="List all registered users")
 def get_all_users(db: Session = Depends(get_db)):
     """
-    Fetch list of registered users from PostgreSQL database.
+    Fetch list of registered users from PostgreSQL database with live individual habit & sleep scores.
     """
     try:
         users = db.query(User).all()
-        return users
+        results = []
+        for u in users:
+            h_snap = calculate_habit_score_snapshot(db, u.id, period_days=7)
+            sq_snap = calculate_sleep_quality(db, u.id, days=7)
+
+            u_dict = {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "provider": u.provider,
+                "target_bedtime": u.target_bedtime,
+                "target_wake_time": u.target_wake_time,
+                "phone_number": u.phone_number,
+                "inactivity_threshold_minutes": u.inactivity_threshold_minutes,
+                "last_meaningful_activity_at": u.last_meaningful_activity_at,
+                "estimated_sleep_start": u.estimated_sleep_start,
+                "estimated_sleep_end": u.estimated_sleep_end,
+                "created_at": u.created_at,
+                "updated_at": u.updated_at,
+                "habit_score": h_snap.get("habit_score", 0.0),
+                "sleep_quality_score": sq_snap.get("score"),
+                "habit_breakdown": h_snap.get("breakdown"),
+            }
+            results.append(UserResponse(**u_dict))
+        return results
     except OperationalError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -247,6 +275,7 @@ def delete_user_by_email(email: str, db: Session = Depends(get_db)):
             detail="Database connection error during user deletion."
         )
 
+
 # JWT Authentication Dependency matching spec
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
@@ -273,4 +302,74 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+
+@router.get("/me", response_model=UserResponse, summary="Get current logged-in user profile")
+def get_me(current_user: User = Depends(get_current_user)):
+    """Returns the authenticated user details including sleep schedule preferences."""
+    return current_user
+
+
+@router.put("/profile", response_model=UserResponse, summary="Update user profile settings")
+def update_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Updates user profile details such as name, email, target_bedtime, target_wake_time, inactivity threshold."""
+    if payload.name is not None:
+        current_user.name = payload.name.strip()
+    if payload.email is not None:
+        current_user.email = payload.email.lower().strip()
+    if payload.phone_number is not None:
+        raw_phone = payload.phone_number.strip()
+        if raw_phone:
+            import re
+            clean = re.sub(r"[\s\-\(\)\.]", "", raw_phone)
+            if not re.match(r"^\+?[1-9]\d{6,14}$", clean):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid phone number format. Please provide a valid 10-15 digit phone number."
+                )
+            current_user.phone_number = clean
+        else:
+            current_user.phone_number = None
+    if payload.target_bedtime is not None:
+        current_user.target_bedtime = payload.target_bedtime.strip() if payload.target_bedtime else None
+    if payload.target_wake_time is not None:
+        current_user.target_wake_time = payload.target_wake_time.strip() if payload.target_wake_time else None
+    if payload.inactivity_threshold_minutes is not None:
+        current_user.inactivity_threshold_minutes = max(5, min(180, int(payload.inactivity_threshold_minutes)))
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Enforces server-side administrator authorization.
+    Rejects any request not made by an authenticated user with ADMIN role.
+    """
+    role = (current_user.role or "").strip().upper()
+    if role != "ADMIN" and "ADMIN" not in role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access required. Your account does not have sufficient permissions."
+        )
+    return current_user
+
+
+def get_current_coach_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Enforces server-side wellness coach or admin authorization.
+    """
+    role = (current_user.role or "").strip().upper()
+    if "COACH" not in role and "ADMIN" not in role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Wellness Coach or Administrator access required."
+        )
+    return current_user
+
 

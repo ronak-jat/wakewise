@@ -164,6 +164,165 @@
                 </div>
             </div>
 
+            <!-- HABIT SCORING ENGINE (REQ 8) -->
+            <div class="glass-card primary-hover" style="margin-bottom: 24px; border: 1px solid rgba(147, 51, 234, 0.35); background: linear-gradient(135deg, rgba(147, 51, 234, 0.08), rgba(59, 130, 246, 0.05));">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #9333ea, #3b82f6); display: flex; align-items: center; justify-content: center; color: white;">
+                                <i class="fas fa-brain" style="font-size: 1.1rem;"></i>
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.25rem;">Habit Scoring Engine</h3>
+                                <p style="margin: 3px 0 0; color: var(--text-secondary); font-size: 0.8rem;">
+                                    Weighted 0–100 score combining Wake-Up Consistency (35%), Challenge Completion (25%), Snooze Reduction (20%), and Sleep Adherence (20%).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px;">
+                            <button id="habit-period-1" class="btn btn-secondary" onclick="setHabitPeriod(1)" style="padding: 4px 10px; font-size: 0.75rem;">Today</button>
+                            <button id="habit-period-7" class="btn btn-primary" onclick="setHabitPeriod(7)" style="padding: 4px 10px; font-size: 0.75rem;">7 Days</button>
+                            <button id="habit-period-30" class="btn btn-secondary" onclick="setHabitPeriod(30)" style="padding: 4px 10px; font-size: 0.75rem;">30 Days</button>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">
+                                <span id="habit-score-value">--</span><span style="font-size: 0.9rem; color: var(--text-secondary);">/100</span>
+                            </div>
+                            <span id="habit-score-level" class="badge badge-success" style="font-size: 0.75rem; padding: 3px 8px;">Calculating...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4 COMPONENT BREAKDOWN GRID -->
+                <div id="habit-score-breakdown" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px;">
+                    <!-- 1. Wake-up consistency (35%) -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.82rem; font-weight: 600; color: #38bdf8;"><i class="fas fa-clock" style="margin-right: 5px;"></i> Wake-Up Consistency</span>
+                            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.7rem;">35%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                            <span style="color: var(--text-secondary);">Score</span>
+                            <strong id="habit-wake-score" style="color: #fff;">--/100</strong>
+                        </div>
+                        <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                            <div id="habit-wake-bar" class="progress-bar-fill" style="width:0%; background: #38bdf8;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Challenge completion (25%) -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.82rem; font-weight: 600; color: #a855f7;"><i class="fas fa-puzzle-piece" style="margin-right: 5px;"></i> Challenge Completion</span>
+                            <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; font-size: 0.7rem;">25%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                            <span style="color: var(--text-secondary);">Score</span>
+                            <strong id="habit-challenge-score" style="color: #fff;">--/100</strong>
+                        </div>
+                        <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                            <div id="habit-challenge-bar" class="progress-bar-fill" style="width:0%; background: #a855f7;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Snooze reduction (20%) -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.82rem; font-weight: 600; color: #22c55e;"><i class="fas fa-bell-slash" style="margin-right: 5px;"></i> Snooze Reduction</span>
+                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; font-size: 0.7rem;">20%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                            <span style="color: var(--text-secondary);">Score</span>
+                            <strong id="habit-snooze-score" style="color: #fff;">--/100</strong>
+                        </div>
+                        <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                            <div id="habit-snooze-bar" class="progress-bar-fill" style="width:0%; background: #22c55e;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Sleep schedule adherence (20%) -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.82rem; font-weight: 600; color: #f59e0b;"><i class="fas fa-moon" style="margin-right: 5px;"></i> Sleep Adherence</span>
+                            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.7rem;">20%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                            <span style="color: var(--text-secondary);">Score</span>
+                            <strong id="habit-sleep-score" style="color: #fff;">--/100</strong>
+                        </div>
+                        <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                            <div id="habit-sleep-bar" class="progress-bar-fill" style="width:0%; background: #f59e0b;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SLEEP ROUTINE DETAILS & WEEKLY COMPARISON (2-COLUMN GRID) -->
+                <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 14px; margin-bottom: 16px;" class="dashboard-grid">
+                    <!-- Sleep Routine Details (Phone Inactivity Tracking) -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="margin: 0; font-size: 0.95rem; color: #fff;"><i class="fas fa-bed" style="color: #818cf8; margin-right: 6px;"></i> Sleep Routine Details</h4>
+                            <span class="badge" id="habit-sleep-estimate-badge" style="background: rgba(129, 140, 248, 0.15); color: #c7d2fe; font-size: 0.7rem; border: 1px solid rgba(129, 140, 248, 0.3);">
+                                Estimated from phone inactivity
+                            </span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.85rem; margin-bottom: 10px;">
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                <div style="color: var(--text-secondary); font-size: 0.75rem;">Target Bedtime</div>
+                                <div id="sleep-target-bedtime" style="font-weight: 700; color: #fff; margin-top: 2px;">--:--</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                <div style="color: var(--text-secondary); font-size: 0.75rem;">Estimated Sleep Time</div>
+                                <div id="sleep-estimated-time" style="font-weight: 700; color: #a855f7; margin-top: 2px;">--:--</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                <div style="color: var(--text-secondary); font-size: 0.75rem;">Target Wake Time</div>
+                                <div id="sleep-target-wake" style="font-weight: 700; color: #fff; margin-top: 2px;">--:--</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                <div style="color: var(--text-secondary); font-size: 0.75rem;">Actual Wake Time</div>
+                                <div id="sleep-actual-wake" style="font-weight: 700; color: #38bdf8; margin-top: 2px;">--:--</div>
+                            </div>
+                        </div>
+                        <div id="sleep-adherence-insight" style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(59, 130, 246, 0.08); padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--primary);">
+                            <i class="fas fa-info-circle" style="color: var(--primary); margin-right: 4px;"></i>
+                            <span id="sleep-adherence-insight-text">Checking sleep schedule adherence records...</span>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Score History & Change -->
+                    <div class="glass-card" style="padding: 14px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;">
+                        <h4 style="margin: 0 0 10px; font-size: 0.95rem; color: #fff;"><i class="fas fa-chart-line" style="color: #22c55e; margin-right: 6px;"></i> Score History & Trend</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 12px;">
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                <div style="font-size: 0.72rem; color: var(--text-secondary);">This Week</div>
+                                <div id="habit-history-this-week" style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">--</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                <div style="font-size: 0.72rem; color: var(--text-secondary);">Last Week</div>
+                                <div id="habit-history-last-week" style="font-size: 1.1rem; font-weight: 700; color: #94a3b8; margin-top: 2px;">--</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                <div style="font-size: 0.72rem; color: var(--text-secondary);">Change</div>
+                                <div id="habit-history-change" style="font-size: 1.1rem; font-weight: 700; color: #22c55e; margin-top: 2px;">+0</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;">
+                            <span>Wake consistency delta: </span><strong id="habit-delta-wake" style="color:#fff;">+0</strong> | 
+                            <span>Challenge delta: </span><strong id="habit-delta-challenge" style="color:#fff;">+0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HABIT INSIGHTS LIST -->
+                <div style="background: rgba(0,0,0,0.2); padding: 12px 14px; border-radius: 8px;">
+                    <h4 style="margin: 0 0 8px; font-size: 0.9rem; color: #e2e8f0;"><i class="fas fa-lightbulb" style="color: #fbbf24; margin-right: 6px;"></i> Habit Insights</h4>
+                    <ul id="habit-insights-list" style="margin:0; padding-left: 18px; color: var(--text-secondary); line-height: 1.7; font-size: 0.82rem;"></ul>
+                </div>
+            </div>
+
             <!-- BEHAVIORAL ANALYTICS -->
             <div class="glass-card" style="margin-bottom: 24px; border: 1px solid rgba(56, 189, 248, 0.3);">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
@@ -247,6 +406,65 @@
                     </table>
                 </div>
             </div>
+
+            <!-- AUTOMATED REPORT DELIVERY & EXPORT -->
+            <div class="glass-card accent-hover" style="padding: 22px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-file-export grad-text" style="margin-right: 8px;"></i> Automated Report Delivery & Export</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 4px 0 0;">Receive regular behavioral & cognitive sleep summaries directly to your inbox or phone.</p>
+                    </div>
+                    <span class="badge badge-info" style="font-size: 0.8rem; padding: 6px 12px;">Automated Scheduler</span>
+                </div>
+                <!-- Instant Direct Document Download -->
+                <div style="background: var(--surface-secondary, rgba(255,255,255,0.04)); padding: 14px 18px; border-radius: 10px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid var(--glass-border);">
+                    <div>
+                        <strong style="font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-file-download" style="color: var(--color-primary); margin-right: 6px;"></i> Instant Report Download:</strong>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 6px;">Download your live sleep & habit audit ledger directly.</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-danger" onclick="exportUserReport('pdf')" style="padding: 7px 14px; font-size: 0.8rem;">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="exportUserReport('excel')" style="padding: 7px 14px; font-size: 0.8rem;">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="exportUserReport('csv')" style="padding: 7px 14px; font-size: 0.8rem;">
+                            <i class="fas fa-file-csv"></i> Download CSV
+                        </button>
+                    </div>
+                </div>
+
+                <form id="report-delivery-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
+                    <div>
+                        <label style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Delivery Method</label>
+                        <div class="channel-pill-group" id="report-channel-pills" style="margin: 0;">
+                            <button type="button" class="channel-pill-btn active" data-channel="email" onclick="selectReportChannel('email')"><i class="fas fa-envelope"></i> Email</button>
+                            <button type="button" class="channel-pill-btn" data-channel="sms" onclick="selectReportChannel('sms')"><i class="fas fa-sms"></i> SMS</button>
+                            <button type="button" class="channel-pill-btn" data-channel="both" onclick="selectReportChannel('both')"><i class="fas fa-paper-plane"></i> Both</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="report-frequency-select" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Schedule Frequency</label>
+                        <select id="report-frequency-select" class="form-control form-select" style="font-size: 0.85rem;">
+                            <option value="weekly" selected>Weekly (Every Sunday 08:00 AM)</option>
+                            <option value="monthly">Monthly (1st of Each Month)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="report-type-select" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Report Type</label>
+                        <select id="report-type-select" class="form-control form-select" style="font-size: 0.85rem;">
+                            <option value="summary" selected>Executive Summary & Habit Score</option>
+                            <option value="detailed">Comprehensive PDF & Analytics Breakdown</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="submit" id="schedule-report-btn" class="btn btn-primary" style="width: 100%; font-size: 0.85rem; padding: 9px 16px;">
+                            <i class="fas fa-calendar-check" style="margin-right: 6px;"></i> Schedule Report
+                        </button>
+                    </div>
+                </form>
+            </div>
         </main>
     </div>
 
@@ -327,10 +545,11 @@
     </audio>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../js/config.js?v=1.0.8"></script>
-    <script src="../js/utils.js?v=1.0.8"></script>
-    <script src="../js/auth.js?v=1.0.8"></script>
+    <script src="../js/config.js?v=1.1.0"></script>
+    <script src="../js/utils.js?v=1.1.0"></script>
+    <script src="../js/auth.js?v=1.1.0"></script>
     <script>protectPage('user');</script>
-    <script src="../js/user.js?v=1.0.8"></script>
+    <script src="../js/user.js?v=1.1.0"></script>
+    <script src="../js/notifications.js?v=1.1.0"></script>
 </body>
 </html>

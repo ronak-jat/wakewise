@@ -316,13 +316,28 @@ function updateHeaderUserInfo() {
 
     // 5. User Profile Form inputs (if present)
     const profileNameInput = document.getElementById('profile-name');
-    if (profileNameInput && !profileNameInput.value) {
+    if (profileNameInput) {
         profileNameInput.value = name;
     }
 
     const profileEmailInput = document.getElementById('profile-email');
-    if (profileEmailInput && sessionUser.email && !profileEmailInput.value) {
+    if (profileEmailInput && sessionUser.email) {
         profileEmailInput.value = sessionUser.email;
+    }
+
+    const bedtimeInput = document.getElementById('profile-bedtime-target');
+    if (bedtimeInput && sessionUser.target_bedtime) {
+        bedtimeInput.value = sessionUser.target_bedtime;
+    }
+
+    const wakeInput = document.getElementById('profile-wake-target');
+    if (wakeInput && sessionUser.target_wake_time) {
+        wakeInput.value = sessionUser.target_wake_time;
+    }
+
+    const thresholdInput = document.getElementById('profile-inactivity-threshold');
+    if (thresholdInput && sessionUser.inactivity_threshold_minutes) {
+        thresholdInput.value = sessionUser.inactivity_threshold_minutes;
     }
 }
 

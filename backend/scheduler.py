@@ -14,6 +14,7 @@ from services.personalization_service import (
     get_time_limit_for_difficulty,
     normalize_difficulty
 )
+from services.notification_service import evaluate_user_notifications
 
 logger = logging.getLogger("alarm_scheduler")
 
@@ -268,6 +269,14 @@ async def alarm_scheduler_loop():
                     print("="*80 + "\n")
 
                     logger.info(f"Alarm '{alarm.title}' (ID: {alarm.id}) triggered with personalized {diff_level} challenge for User {alarm.user_id} at {target_time}")
+
+            # Periodically evaluate reminders and alerts for active users
+            try:
+                active_users = db.query(User).all()
+                for u in active_users:
+                    evaluate_user_notifications(db, u, now)
+            except Exception as notif_err:
+                logger.debug(f"Notification evaluation note: {notif_err}")
 
             db.close()
         except Exception as e:

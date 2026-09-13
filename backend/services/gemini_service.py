@@ -100,9 +100,13 @@ def generate_cognitive_challenge(
     """
     Multi-Provider AI Cognitive Challenge Generator.
     Orchestrates Groq API (ultra-fast sub-second latency) + Gemini API + Local Fallback.
+    Instruments latency and outcome to PerformanceMetricsCollector.
     """
+    import time
+    from services.metrics_collector import metrics_collector
     from services.groq_service import generate_groq_challenge
 
+    t_start = time.perf_counter()
     normalized_type = map_challenge_type(challenge_type)
     normalized_diff = normalize_difficulty(difficulty)
 
@@ -114,6 +118,15 @@ def generate_cognitive_challenge(
     if provider_setting in ("auto", "gemini") and gemini_api_key and gemini_api_key.strip():
         gemini_challenge = _generate_gemini_challenge(normalized_type, normalized_diff, gemini_api_key.strip())
         if gemini_challenge:
+            duration_ms = (time.perf_counter() - t_start) * 1000
+            metrics_collector.record_challenge_generation(
+                challenge_type=normalized_type,
+                difficulty=normalized_diff,
+                provider=gemini_challenge.get("ai_provider", "Gemini"),
+                duration_ms=duration_ms,
+                success=True,
+                is_fallback=False
+            )
             return gemini_challenge
         logger.warning("Gemini API generation failed or unavailable. Falling back to Groq API...")
 
@@ -122,6 +135,15 @@ def generate_cognitive_challenge(
         try:
             groq_challenge = generate_groq_challenge(normalized_type, normalized_diff, groq_api_key.strip())
             if groq_challenge:
+                duration_ms = (time.perf_counter() - t_start) * 1000
+                metrics_collector.record_challenge_generation(
+                    challenge_type=normalized_type,
+                    difficulty=normalized_diff,
+                    provider="Groq",
+                    duration_ms=duration_ms,
+                    success=True,
+                    is_fallback=(provider_setting == "gemini")
+                )
                 logger.info(f"Groq API successfully generated challenge for '{normalized_type}' ({normalized_diff}) as primary/fallback!")
                 return groq_challenge
             logger.warning("Groq API fallback did not return a challenge. Using local fallback.")
@@ -129,9 +151,18 @@ def generate_cognitive_challenge(
             logger.warning(f"Groq API challenge generation error: {e}")
 
     # 3. Fallback to high-quality curated local challenges
+    duration_ms = (time.perf_counter() - t_start) * 1000
     logger.info(f"Serving instant local cognitive challenge for '{normalized_type}' ({normalized_diff}).")
     local_challenge = get_fallback_challenge(normalized_type, normalized_diff)
     local_challenge["ai_provider"] = "Local Cognitive Engine"
+    metrics_collector.record_challenge_generation(
+        challenge_type=normalized_type,
+        difficulty=normalized_diff,
+        provider="Local Cognitive Engine",
+        duration_ms=duration_ms,
+        success=True,
+        is_fallback=True
+    )
     return local_challenge
 
 

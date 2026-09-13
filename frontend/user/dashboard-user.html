@@ -86,6 +86,28 @@
                     <button class="nav-toggle-theme" title="Toggle Theme" aria-label="Toggle Theme">
                         <i class="fas fa-sun"></i>
                     </button>
+                    <!-- Notification Bell Dropdown Wrapper -->
+                    <div class="notif-wrapper">
+                        <button class="notif-bell-btn" id="notif-trigger" title="Notifications" aria-label="Notifications">
+                            <i class="fas fa-bell"></i>
+                            <span class="notif-badge" id="notif-badge" style="display: none;">0</span>
+                        </button>
+                        <div class="notif-dropdown" id="notif-dropdown">
+                            <div class="notif-dropdown-header">
+                                <h4>Notifications</h4>
+                                <div class="notif-dropdown-actions">
+                                    <button id="notif-mark-all-read-btn" class="btn-text-action" title="Mark all as read"><i class="fas fa-check-double"></i></button>
+                                    <button id="notif-open-prefs-btn" class="btn-text-action" title="Notification Preferences"><i class="fas fa-sliders-h"></i></button>
+                                </div>
+                            </div>
+                            <div class="notif-dropdown-list" id="notif-dropdown-list">
+                                <div class="notif-loading"><div class="spinner-small"></div> Syncing notifications...</div>
+                            </div>
+                            <div class="notif-dropdown-footer">
+                                <a href="#notifications" onclick="switchTab('tab-notifications')">View All in Notification Center &rarr;</a>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Profile dropdown -->
                     <div class="profile-dropdown-wrapper">
                         <div class="profile-trigger" id="profile-trigger">
@@ -122,119 +144,124 @@
                         </div>
                     </div>
 
-                    <!-- PROGRESS BAR FOR DAILY GOALS -->
-                    <div class="daily-goal-panel glass-card secondary-hover">
-                        <div class="goal-progress-header">
-                            <h3>Daily Cognitive & Habit Progress</h3>
-                            <span class="goal-percent-bubble" id="goal-percent">0% Completed</span>
-                        </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" id="goal-bar"></div>
-                        </div>
-                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
-                            Complete morning routine tasks (Log sleep hours, challenge prefrontal cortex, update habits
-                            checklist) to reach 100%!
-                        </p>
-                    </div>
-
-                    <!-- Stats Grid -->
-                    <div class="stats-grid">
+                    <!-- Stats Grid: Real PostgreSQL Data -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px;">
                         <div class="glass-card primary-hover stat-card">
                             <div class="stat-icon primary"><i class="fas fa-clock"></i></div>
                             <div class="stat-details">
-                                <h3 id="stat-total-alarms">3</h3>
+                                <h3 id="stat-total-alarms">0</h3>
                                 <p>Total Alarms</p>
                             </div>
                         </div>
                         <div class="glass-card success-hover stat-card">
-                            <div class="stat-icon success"><i class="fas fa-bell"></i></div>
+                            <div class="stat-icon success"><i class="fas fa-toggle-on"></i></div>
                             <div class="stat-details">
-                                <h3 id="stat-today-alarm">07:30 AM</h3>
-                                <p>Today's Alarm</p>
+                                <h3 id="stat-active-alarms">0</h3>
+                                <p>Active Alarms</p>
                             </div>
                         </div>
                         <div class="glass-card secondary-hover stat-card">
-                            <div class="stat-icon secondary"><i class="fas fa-brain"></i></div>
+                            <div class="stat-icon secondary"><i class="fas fa-check-double"></i></div>
                             <div class="stat-details">
-                                <h3 id="stat-habit-score">88</h3>
-                                <p>Habit Score</p>
+                                <h3 id="stat-completed-alarms">0</h3>
+                                <p>Completed</p>
+                            </div>
+                        </div>
+                        <div class="glass-card danger-hover stat-card">
+                            <div class="stat-icon danger"><i class="fas fa-times-circle"></i></div>
+                            <div class="stat-details">
+                                <h3 id="stat-missed-alarms">0</h3>
+                                <p>Missed / Timed Out</p>
+                            </div>
+                        </div>
+                        <div class="glass-card warning-hover stat-card">
+                            <div class="stat-icon warning"><i class="fas fa-bed"></i></div>
+                            <div class="stat-details">
+                                <h3 id="stat-snooze-count">0</h3>
+                                <p>Total Snoozes</p>
                             </div>
                         </div>
                         <div class="glass-card accent-hover stat-card">
                             <div class="stat-icon accent"><i class="fas fa-fire"></i></div>
                             <div class="stat-details">
-                                <h3>14 Days</h3>
+                                <h3 id="stat-wake-streak">0 Days</h3>
                                 <p>Wakeup Streak</p>
                             </div>
                         </div>
-                        <div class="glass-card warning-hover stat-card">
-                            <div class="stat-icon warning"><i class="fas fa-percentage"></i></div>
+                        <div class="glass-card primary-hover stat-card">
+                            <div class="stat-icon primary"><i class="fas fa-sun"></i></div>
                             <div class="stat-details">
-                                <h3>92%</h3>
-                                <p>Challenge Acc.</p>
+                                <h3 id="stat-avg-wake-time">--:--</h3>
+                                <p>Avg Wake Time</p>
                             </div>
                         </div>
-                        <div class="glass-card danger-hover stat-card">
-                            <div class="stat-icon danger"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="glass-card success-hover stat-card">
+                            <div class="stat-icon success"><i class="fas fa-hourglass-half"></i></div>
                             <div class="stat-details">
-                                <h3>85%</h3>
-                                <p>Productivity</p>
+                                <h3 id="stat-avg-delay">0.0m</h3>
+                                <p>Avg Wake Delay</p>
+                            </div>
+                        </div>
+                        <div class="glass-card secondary-hover stat-card">
+                            <div class="stat-icon secondary"><i class="fas fa-star"></i></div>
+                            <div class="stat-details">
+                                <h3 id="stat-avg-wakefulness">--/5</h3>
+                                <p>Avg Wakefulness</p>
+                            </div>
+                        </div>
+                        <div class="glass-card warning-hover stat-card">
+                            <div class="stat-icon warning"><i class="fas fa-shield-alt"></i></div>
+                            <div class="stat-details">
+                                <h3 id="stat-verif-success-rate">0%</h3>
+                                <p>Verification Rate</p>
+                            </div>
+                        </div>
+                        <div class="glass-card secondary-hover stat-card" id="card-sleep-quality">
+                            <div class="stat-icon secondary"><i class="fas fa-moon"></i></div>
+                            <div class="stat-details">
+                                <h3 id="stat-sleep-quality">--</h3>
+                                <p>Sleep Quality</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Dashboard Grid: Charts and Tables -->
-                    <div class="dashboard-grid">
-                        <!-- Chart section -->
-                        <div class="glass-card primary-hover">
-                            <div class="chart-header">
-                                <h3>Sleep Hours & Cognitive Performance</h3>
-                                <div style="display: flex; gap: 8px;">
-                                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">7
-                                        Days</button>
-                                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">30
-                                        Days</button>
-                                </div>
+
+                    <!-- AI Adaptive Next Alarm Recommendation Banner -->
+                    <div style="background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 16px 20px; border-left: 4px solid var(--primary); margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.4); display: flex; align-items: center; justify-content: center; color: #d8b4fe; font-size: 1.2rem;">
+                                <i class="fas fa-magic"></i>
                             </div>
-                            <div class="chart-container">
-                                <canvas id="performanceChart"></canvas>
+                            <div>
+                                <h4 style="margin: 0; font-size: 1rem; color: #fff;">Next Alarm AI Recommendation</h4>
+                                <p style="margin: 3px 0 0; font-size: 0.85rem; color: var(--text-secondary);" id="dashboard-adaptive-tip">
+                                    Analyzing your wake-up patterns and cognitive performance...
+                                </p>
                             </div>
                         </div>
-
-                        <!-- Quick Actions Console -->
-                        <div class="glass-card accent-hover">
-                            <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Quick Actions</h3>
-                            <div class="action-panel-list">
-                                <div class="action-card" onclick="Modal.open('add-alarm-modal')">
-                                    <div class="action-info">
-                                        <h4>Add New Alarm</h4>
-                                        <p>Create a custom wake trigger</p>
-                                    </div>
-                                    <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem;"><i
-                                            class="fas fa-plus"></i></button>
-                                </div>
-                                <div class="action-card" onclick="triggerChallenge()">
-                                    <div class="action-info">
-                                        <h4>Cognitive Wakeup Drill</h4>
-                                        <p>Activate prefrontal cortex matrix</p>
-                                    </div>
-                                    <button class="btn btn-accent" style="padding: 8px 12px; font-size: 0.8rem;"><i
-                                            class="fas fa-puzzle-piece"></i></button>
-                                </div>
-                                <div class="action-card" onclick="simulateReportDownload()">
-                                    <div class="action-info">
-                                        <h4>Download Sleep Report</h4>
-                                        <p>Export wellness trend PDF</p>
-                                    </div>
-                                    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"><i
-                                            class="fas fa-file-download"></i></button>
-                                </div>
-                            </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="switchTab('tab-analytics')" style="padding: 6px 12px; font-size: 0.8rem;">
+                                <i class="fas fa-chart-line"></i> View Analytics
+                            </button>
+                            <button class="btn btn-primary" onclick="switchTab('tab-alarms')" style="padding: 6px 12px; font-size: 0.8rem;">
+                                <i class="fas fa-clock"></i> My Alarms
+                            </button>
                         </div>
+                    </div>
 
-                        <!-- Upcoming Alarms Table -->
+                    <!-- Upcoming Schedule & Quick Actions Grid -->
+                    <div class="dashboard-grid" style="margin-bottom: 24px;">
+                        <!-- Active Alarms Overview Card (Top 3 Active) -->
                         <div class="glass-card success-hover">
-                            <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Upcoming Wake Schedule</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-bell grad-text"></i> Active Alarms</h3>
+                                    <span style="font-size: 0.78rem; color: var(--text-secondary);">Showing top 3 active wakeup schedules</span>
+                                </div>
+                                <button class="btn btn-secondary" onclick="switchTab('tab-alarms')" style="padding: 4px 10px; font-size: 0.75rem;">
+                                    Manage All <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
+                                </button>
+                            </div>
                             <div class="table-responsive">
                                 <table class="custom-table" id="alarms-table-body">
                                     <thead>
@@ -253,39 +280,31 @@
                             </div>
                         </div>
 
-                        <!-- Challenge History Table -->
-                        <div class="glass-card secondary-hover">
-                            <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Challenge History Log</h3>
-                            <div class="table-responsive">
-                                <table class="custom-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Challenge Mode</th>
-                                            <th>Score</th>
-                                            <th>Date Stamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><i class="fas fa-calculator text-muted" style="margin-right:8px;"></i>
-                                                Mental Arithmetic</td>
-                                            <td><span class="badge badge-success">100% (Pass)</span></td>
-                                            <td>Today, 07:34 AM</td>
-                                        </tr>
-                                        <tr>
-                                            <td><i class="fas fa-shapes text-muted" style="margin-right:8px;"></i>
-                                                Memory Grid Puzzle</td>
-                                            <td><span class="badge badge-success">90% (Pass)</span></td>
-                                            <td>Yesterday, 07:32 AM</td>
-                                        </tr>
-                                        <tr>
-                                            <td><i class="fas fa-calculator text-muted" style="margin-right:8px;"></i>
-                                                Mental Arithmetic</td>
-                                            <td><span class="badge badge-warning">80% (Pass)</span></td>
-                                            <td>26 Jul, 07:35 AM</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                        <!-- Quick Actions Console -->
+                        <div class="glass-card accent-hover">
+                            <h3 style="margin-bottom: 20px; font-size: 1.15rem;"><i class="fas fa-bolt grad-text"></i> Quick Actions</h3>
+                            <div class="action-panel-list">
+                                <div class="action-card" onclick="Modal.open('add-alarm-modal')">
+                                    <div class="action-info">
+                                        <h4>Add New Alarm</h4>
+                                        <p>Create a custom wake trigger with cognitive challenge</p>
+                                    </div>
+                                    <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-plus"></i></button>
+                                </div>
+                                <div class="action-card" onclick="switchTab('tab-habits')">
+                                    <div class="action-info">
+                                        <h4>Habit Tracker</h4>
+                                        <p>Inspect Habit Score breakdown and sleep routine</p>
+                                    </div>
+                                    <button class="btn btn-accent" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-tasks"></i></button>
+                                </div>
+                                <div class="action-card" onclick="switchTab('tab-analytics')">
+                                    <div class="action-info">
+                                        <h4>Cognitive Analytics</h4>
+                                        <p>Inspect wake trends, domain mastery, and insights</p>
+                                    </div>
+                                    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-chart-line"></i></button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -293,10 +312,13 @@
 
                 <!-- ================= TAB: MY ALARMS ================= -->
                 <div id="tab-alarms" class="tab-content-section">
-                    <div class="glass-card primary-hover" style="margin-bottom: 30px;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3>Alarm Management Panel</h3>
+                    <!-- Alarm Manager Card -->
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.3rem;"><i class="fas fa-clock grad-text"></i> Alarm Management Panel</h3>
+                                <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.85rem;">Configure cognitive wakeup alarms, difficulty levels, and multi-step verification.</p>
+                            </div>
                             <button class="btn btn-primary" onclick="Modal.open('add-alarm-modal')">
                                 <i class="fas fa-plus"></i> Set New Alarm
                             </button>
@@ -319,17 +341,210 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Alarm & Wake-Up History Table with Date Filters -->
+                    <div class="glass-card success-hover" style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-history grad-text"></i> Alarm & Wake-Up History</h3>
+                                <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.8rem;">Historical records of scheduled vs actual wake times and verification outcomes.</p>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px;">
+                                    <button class="btn btn-secondary" id="history-filter-today" onclick="filterAlarmHistory('today')" style="padding: 4px 10px; font-size: 0.75rem;">Today</button>
+                                    <button class="btn btn-primary" id="history-filter-7d" onclick="filterAlarmHistory('7days')" style="padding: 4px 10px; font-size: 0.75rem;">Last 7 Days</button>
+                                    <button class="btn btn-secondary" id="history-filter-30d" onclick="filterAlarmHistory('30days')" style="padding: 4px 10px; font-size: 0.75rem;">Last 30 Days</button>
+                                </div>
+                                <div style="display: flex; gap: 4px; align-items: center;">
+                                    <input type="date" id="history-start-date" class="form-control" style="padding: 3px 6px; font-size: 0.75rem; width: 120px;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+                                    <input type="date" id="history-end-date" class="form-control" style="padding: 3px 6px; font-size: 0.75rem; width: 120px;">
+                                    <button class="btn btn-primary" onclick="applyCustomHistoryFilter()" style="padding: 4px 8px; font-size: 0.75rem;">Filter</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="custom-table" id="db-alarm-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Alarm Label</th>
+                                        <th>Scheduled</th>
+                                        <th>Trigger Time</th>
+                                        <th>Actual Wake</th>
+                                        <th>Status</th>
+                                        <th>Snoozes</th>
+                                        <th>Verification</th>
+                                        <th>Wakefulness</th>
+                                        <th>Challenge Score</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="db-alarm-history-tbody">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ================= TAB: HABIT TRACKER ================= -->
                 <div id="tab-habits" class="tab-content-section">
-                    <div class="glass-card success-hover" style="margin-bottom: 30px;">
-                        <h3 style="margin-bottom: 15px;">Healthy Morning Routine Checklist</h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Complete your custom habits each
-                            morning to boost your Habit Score and wake quality index.</p>
+                    <!-- HABIT SCORING ENGINE (REQ 8) -->
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px; border: 1px solid rgba(147, 51, 234, 0.35); background: linear-gradient(135deg, rgba(147, 51, 234, 0.08), rgba(59, 130, 246, 0.05));">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #9333ea, #3b82f6); display: flex; align-items: center; justify-content: center; color: white;">
+                                        <i class="fas fa-brain" style="font-size: 1.1rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.25rem;">Habit Scoring Engine</h3>
+                                        <p style="margin: 3px 0 0; color: var(--text-secondary); font-size: 0.8rem;">
+                                            Weighted 0–100 score combining Wake-Up Consistency (35%), Challenge Completion (25%), Snooze Reduction (20%), and Sleep Adherence (20%).
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px;">
+                                    <button id="habit-period-1" class="btn btn-secondary" onclick="setHabitPeriod(1)" style="padding: 4px 10px; font-size: 0.75rem;">Today</button>
+                                    <button id="habit-period-7" class="btn btn-primary" onclick="setHabitPeriod(7)" style="padding: 4px 10px; font-size: 0.75rem;">7 Days</button>
+                                    <button id="habit-period-30" class="btn btn-secondary" onclick="setHabitPeriod(30)" style="padding: 4px 10px; font-size: 0.75rem;">30 Days</button>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">
+                                        <span id="habit-score-value">--</span><span style="font-size: 0.9rem; color: var(--text-secondary);">/100</span>
+                                    </div>
+                                    <span id="habit-score-level" class="badge badge-success" style="font-size: 0.75rem; padding: 3px 8px;">Calculating...</span>
+                                </div>
+                            </div>
+                        </div>
 
-                        <div class="action-panel-list" id="habits-list-container">
-                            <!-- Populated dynamically via JS -->
+                        <!-- 4 COMPONENT BREAKDOWN GRID -->
+                        <div id="habit-score-breakdown" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px;">
+                            <!-- 1. Wake-up consistency (35%) -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 0.82rem; font-weight: 600; color: #38bdf8;"><i class="fas fa-clock" style="margin-right: 5px;"></i> Wake-Up Consistency</span>
+                                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.7rem;">35%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Score</span>
+                                    <strong id="habit-wake-score" style="color: #fff;">--/100</strong>
+                                </div>
+                                <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                    <div id="habit-wake-bar" class="progress-bar-fill" style="width:0%; background: #38bdf8;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Challenge completion (25%) -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 0.82rem; font-weight: 600; color: #a855f7;"><i class="fas fa-puzzle-piece" style="margin-right: 5px;"></i> Challenge Completion</span>
+                                    <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; font-size: 0.7rem;">25%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Score</span>
+                                    <strong id="habit-challenge-score" style="color: #fff;">--/100</strong>
+                                </div>
+                                <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                    <div id="habit-challenge-bar" class="progress-bar-fill" style="width:0%; background: #a855f7;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Snooze reduction (20%) -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 0.82rem; font-weight: 600; color: #22c55e;"><i class="fas fa-bell-slash" style="margin-right: 5px;"></i> Snooze Reduction</span>
+                                    <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; font-size: 0.7rem;">20%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Score</span>
+                                    <strong id="habit-snooze-score" style="color: #fff;">--/100</strong>
+                                </div>
+                                <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                    <div id="habit-snooze-bar" class="progress-bar-fill" style="width:0%; background: #22c55e;"></div>
+                                </div>
+                            </div>
+
+                            <!-- 4. Sleep schedule adherence (20%) -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(15,23,42,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 0.82rem; font-weight: 600; color: #f59e0b;"><i class="fas fa-moon" style="margin-right: 5px;"></i> Sleep Adherence</span>
+                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.7rem;">20%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+                                    <span style="color: var(--text-secondary);">Score</span>
+                                    <strong id="habit-sleep-score" style="color: #fff;">--/100</strong>
+                                </div>
+                                <div class="progress-bar-container" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                    <div id="habit-sleep-bar" class="progress-bar-fill" style="width:0%; background: #f59e0b;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SLEEP ROUTINE DETAILS & WEEKLY COMPARISON (2-COLUMN GRID) -->
+                        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 14px; margin-bottom: 16px;" class="dashboard-grid">
+                            <!-- Sleep Routine Details (Phone Inactivity Tracking) -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h4 style="margin: 0; font-size: 0.95rem; color: #fff;"><i class="fas fa-bed" style="color: #818cf8; margin-right: 6px;"></i> Sleep Routine Details</h4>
+                                    <span class="badge" id="habit-sleep-estimate-badge" style="background: rgba(129, 140, 248, 0.15); color: #c7d2fe; font-size: 0.7rem; border: 1px solid rgba(129, 140, 248, 0.3);">
+                                        Estimated from phone inactivity
+                                    </span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.85rem; margin-bottom: 10px;">
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                        <div style="color: var(--text-secondary); font-size: 0.75rem;">Target Bedtime</div>
+                                        <div id="sleep-target-bedtime" style="font-weight: 700; color: #fff; margin-top: 2px;">--:--</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                        <div style="color: var(--text-secondary); font-size: 0.75rem;">Estimated Sleep Time</div>
+                                        <div id="sleep-estimated-time" style="font-weight: 700; color: #a855f7; margin-top: 2px;">--:--</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                        <div style="color: var(--text-secondary); font-size: 0.75rem;">Target Wake Time</div>
+                                        <div id="sleep-target-wake" style="font-weight: 700; color: #fff; margin-top: 2px;">--:--</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                        <div style="color: var(--text-secondary); font-size: 0.75rem;">Actual Wake Time</div>
+                                        <div id="sleep-actual-wake" style="font-weight: 700; color: #38bdf8; margin-top: 2px;">--:--</div>
+                                    </div>
+                                </div>
+                                <div id="sleep-adherence-insight" style="font-size: 0.8rem; color: var(--text-secondary); background: rgba(59, 130, 246, 0.08); padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--primary);">
+                                    <i class="fas fa-info-circle" style="color: var(--primary); margin-right: 4px;"></i>
+                                    <span id="sleep-adherence-insight-text">Checking sleep schedule adherence records...</span>
+                                </div>
+                            </div>
+
+                            <!-- Weekly Score History & Change -->
+                            <div class="glass-card" style="padding: 14px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;">
+                                <h4 style="margin: 0 0 10px; font-size: 0.95rem; color: #fff;"><i class="fas fa-chart-line" style="color: #22c55e; margin-right: 6px;"></i> Score History & Trend</h4>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 12px;">
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                        <div style="font-size: 0.72rem; color: var(--text-secondary);">This Week</div>
+                                        <div id="habit-history-this-week" style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">--</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                        <div style="font-size: 0.72rem; color: var(--text-secondary);">Last Week</div>
+                                        <div id="habit-history-last-week" style="font-size: 1.1rem; font-weight: 700; color: #94a3b8; margin-top: 2px;">--</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px;">
+                                        <div style="font-size: 0.72rem; color: var(--text-secondary);">Change</div>
+                                        <div id="habit-history-change" style="font-size: 1.1rem; font-weight: 700; color: #22c55e; margin-top: 2px;">+0</div>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;">
+                                    <span>Wake consistency delta: </span><strong id="habit-delta-wake" style="color:#fff;">+0</strong> | 
+                                    <span>Challenge delta: </span><strong id="habit-delta-challenge" style="color:#fff;">+0</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- HABIT INSIGHTS LIST -->
+                        <div style="background: rgba(0,0,0,0.2); padding: 12px 14px; border-radius: 8px;">
+                            <h4 style="margin: 0 0 8px; font-size: 0.9rem; color: #e2e8f0;"><i class="fas fa-lightbulb" style="color: #fbbf24; margin-right: 6px;"></i> Habit Insights</h4>
+                            <ul id="habit-insights-list" style="margin:0; padding-left: 18px; color: var(--text-secondary); line-height: 1.7; font-size: 0.82rem;"></ul>
                         </div>
                     </div>
                 </div>
@@ -337,18 +552,13 @@
                 <!-- ================= TAB: ANALYTICS ================= -->
                 <div id="tab-analytics" class="tab-content-section">
                     <div class="glass-card primary-hover" style="margin-bottom: 24px;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                             <div>
-                                <h2 style="margin: 0; font-size: 1.5rem;"><i class="fas fa-chart-line grad-text"></i>
-                                    Performance & Cognitive Analytics</h2>
-                                <p style="color: var(--text-secondary); margin-top: 4px; font-size: 0.85rem;">
-                                    Calculated from your personal challenge attempts in the database.
-                                </p>
+                                <h2 style="margin: 0; font-size: 1.5rem;"><i class="fas fa-chart-line grad-text"></i> Performance & Cognitive Analytics</h2>
+                                <p style="color: var(--text-secondary); margin-top: 4px; font-size: 0.85rem;">Calculated dynamically from your personal challenge attempts and wake-up data.</p>
                             </div>
                             <div>
-                                <span class="badge badge-info" id="db-recommended-diff-badge"
-                                    style="padding: 6px 12px; font-size: 0.8rem;">
+                                <span class="badge badge-info" id="db-recommended-diff-badge" style="padding: 6px 12px; font-size: 0.8rem;">
                                     Recommended: Medium
                                 </span>
                             </div>
@@ -414,117 +624,65 @@
                     </div>
 
                     <!-- 5 STAT SUMMARY CARDS GRID -->
-                    <div
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px;">
                         <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(168,85,247,0.15); color: var(--primary);">
-                                <i class="fas fa-bullseye"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-label">Overall Accuracy</span>
-                                <h3 class="stat-value" id="db-analytics-accuracy">0%</h3>
-                            </div>
+                            <div class="stat-icon" style="background: rgba(168,85,247,0.15); color: var(--primary);"><i class="fas fa-bullseye"></i></div>
+                            <div class="stat-info"><span class="stat-label">Overall Accuracy</span><h3 class="stat-value" id="db-analytics-accuracy">0%</h3></div>
                         </div>
-
                         <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: #22c55e;">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-label">Passed</span>
-                                <h3 class="stat-value" id="db-analytics-passed">0</h3>
-                            </div>
+                            <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: #22c55e;"><i class="fas fa-check-circle"></i></div>
+                            <div class="stat-info"><span class="stat-label">Passed</span><h3 class="stat-value" id="db-analytics-passed">0</h3></div>
                         </div>
-
                         <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: #ef4444;">
-                                <i class="fas fa-times-circle"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-label">Failed</span>
-                                <h3 class="stat-value" id="db-analytics-failed">0</h3>
-                            </div>
+                            <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: #ef4444;"><i class="fas fa-times-circle"></i></div>
+                            <div class="stat-info"><span class="stat-label">Failed</span><h3 class="stat-value" id="db-analytics-failed">0</h3></div>
                         </div>
-
                         <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: #3b82f6;">
-                                <i class="fas fa-stopwatch"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-label">Average Time</span>
-                                <h3 class="stat-value" id="db-analytics-avg-time">0.0s</h3>
-                            </div>
+                            <div class="stat-icon" style="background: rgba(59,130,246,0.15); color: #3b82f6;"><i class="fas fa-stopwatch"></i></div>
+                            <div class="stat-info"><span class="stat-label">Average Time</span><h3 class="stat-value" id="db-analytics-avg-time">0.0s</h3></div>
                         </div>
-
                         <div class="stat-card">
-                            <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;">
-                                <i class="fas fa-fire"></i>
-                            </div>
-                            <div class="stat-info">
-                                <span class="stat-label">Current Streak</span>
-                                <h3 class="stat-value" id="db-analytics-streak">0 Days</h3>
-                            </div>
+                            <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;"><i class="fas fa-fire"></i></div>
+                            <div class="stat-info"><span class="stat-label">Current Streak</span><h3 class="stat-value" id="db-analytics-streak">0 Days</h3></div>
                         </div>
                     </div>
 
-                    <!-- ACCURACY OVER TIME CHART -->
-                    <div class="glass-card secondary-hover" style="margin-bottom: 24px;">
-                        <h3 style="margin-bottom: 16px;"><i class="fas fa-line-chart grad-text"></i> Daily Performance
-                            Trend</h3>
-                        <div class="chart-container" style="height: 320px;">
-                            <canvas id="detailedSleepChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- BEHAVIORAL ANALYTICS -->
-                    <div class="glass-card" style="margin-bottom: 24px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    <!-- WAKE-UP STATISTICS & TRENDS LINE CHART -->
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
                             <div>
-                                <h3 style="margin: 0;"><i class="fas fa-user-clock grad-text"></i> Behavioral Analytics</h3>
-                                <p style="margin: 6px 0 0; color: var(--text-secondary); font-size: 0.82rem;">Wake-up behavior, snooze trends, and consistency patterns.</p>
+                                <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-chart-area grad-text"></i> Wake-Up Trends & Consistency</h3>
+                                <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.82rem;">Scheduled wake time vs actual wake time from database records.</p>
+                            </div>
+                            <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px;">
+                                <button class="btn btn-primary" id="wake-stat-7d" onclick="setWakeStatsWindow(7)" style="padding: 4px 10px; font-size: 0.75rem;">7 Days</button>
+                                <button class="btn btn-secondary" id="wake-stat-30d" onclick="setWakeStatsWindow(30)" style="padding: 4px 10px; font-size: 0.75rem;">30 Days</button>
                             </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 16px;">
-                            <div class="stat-card"><div class="stat-icon" style="background: rgba(14,165,233,0.12); color: #38bdf8;"><i class="fas fa-clock"></i></div><div class="stat-info"><span class="stat-label">Wake-Up Consistency</span><h3 class="stat-value" id="db-behavior-consistency">0%</h3></div></div>
-                            <div class="stat-card"><div class="stat-icon" style="background: rgba(168,85,247,0.15); color: var(--primary);"><i class="fas fa-bed"></i></div><div class="stat-info"><span class="stat-label">Average Snoozes</span><h3 class="stat-value" id="db-behavior-snoozes">0.0</h3></div></div>
-                            <div class="stat-card"><div class="stat-icon" style="background: rgba(34,197,94,0.15); color: #22c55e;"><i class="fas fa-star"></i></div><div class="stat-info"><span class="stat-label">Avg Wakefulness</span><h3 class="stat-value" id="db-behavior-wakefulness">0.0/5</h3></div></div>
-                            <div class="stat-card"><div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;"><i class="fas fa-sun"></i></div><div class="stat-info"><span class="stat-label">Average Wake Time</span><h3 class="stat-value" id="db-behavior-wake-time">--:--</h3></div></div>
-                            <div class="stat-card"><div class="stat-icon" style="background: rgba(239,68,68,0.15); color: #ef4444;"><i class="fas fa-fire"></i></div><div class="stat-info"><span class="stat-label">Current Streak</span><h3 class="stat-value" id="db-behavior-streak">0 days</h3></div></div>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div class="glass-card" style="background: rgba(15, 23, 42, 0.25); border: 1px solid var(--glass-border);">
-                                <h4 style="margin: 0 0 10px;"><i class="fas fa-chart-pie grad-text"></i> Patterns</h4>
-                                <ul id="db-behavior-patterns-list" style="margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.8; font-size: 0.85rem;"></ul>
-                            </div>
-                            <div class="glass-card" style="background: rgba(15, 23, 42, 0.25); border: 1px solid var(--glass-border);">
-                                <h4 style="margin: 0 0 10px;"><i class="fas fa-lightbulb grad-text"></i> Insights</h4>
-                                <ul id="db-behavior-insights-list" style="margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.8; font-size: 0.85rem;"></ul>
-                            </div>
+                        <div class="chart-container" style="height: 280px; position: relative;">
+                            <canvas id="wakeUpTrendChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- BREAKDOWN GRIDS: BY TYPE & BY DIFFICULTY -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;"
-                        class="dashboard-grid">
-                        <div class="glass-card accent-hover">
-                            <h3 style="margin-bottom: 16px;"><i class="fas fa-puzzle-piece grad-text"></i> Performance
-                                by Type</h3>
-                            <div id="db-analytics-by-type-container"
-                                style="display: flex; flex-direction: column; gap: 12px;"></div>
+                    <!-- CATEGORIZED RECOMMENDATIONS ENGINE GRID -->
+                    <div class="glass-card accent-hover" style="margin-bottom: 24px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-lightbulb grad-text"></i> Personalized Recommendations Engine</h3>
+                                <p style="margin: 3px 0 0; color: var(--text-secondary); font-size: 0.8rem;">Real insights across Sleep, Wake-Up, Habit, Productivity, and Challenges.</p>
+                            </div>
+                            <button class="btn btn-secondary" onclick="loadCategorizedRecommendations()" style="padding: 4px 10px; font-size: 0.75rem;">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
                         </div>
-
-                        <div class="glass-card primary-hover">
-                            <h3 style="margin-bottom: 16px;"><i class="fas fa-layer-group grad-text"></i> Performance by
-                                Difficulty</h3>
-                            <div id="db-analytics-by-diff-container"
-                                style="display: flex; flex-direction: column; gap: 12px;"></div>
+                        <div id="db-recommendations-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                            <!-- Populated dynamically via JS -->
                         </div>
                     </div>
 
                     <!-- RECENT ATTEMPT HISTORY TABLE -->
-                    <div class="glass-card success-hover">
-                        <h3 style="margin-bottom: 16px;"><i class="fas fa-history grad-text"></i> Recent Attempt Logs
-                        </h3>
+                    <div class="glass-card success-hover" style="margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 16px;"><i class="fas fa-history grad-text"></i> Recent Attempt Logs</h3>
                         <div class="table-responsive">
                             <table class="custom-table" id="db-analytics-history-table">
                                 <thead>
@@ -541,26 +699,71 @@
                             </table>
                         </div>
                     </div>
-                </div>
 
-                <!-- ================= TAB: NOTIFICATIONS ================= -->
-                <div id="tab-notifications" class="tab-content-section">
-                    <div class="glass-card accent-hover" style="margin-bottom: 30px;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3>Platform Notifications</h3>
-                            <button class="btn btn-secondary" onclick="clearNotifications()">Clear All</button>
+                    <!-- AUTOMATED REPORT DELIVERY & EXPORT -->
+                    <div class="glass-card accent-hover" style="padding: 22px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-file-export grad-text" style="margin-right: 8px;"></i> Automated Report Delivery & Export</h3>
+                                <p style="color: var(--text-secondary); font-size: 0.82rem; margin: 4px 0 0;">Receive regular behavioral & cognitive sleep summaries directly to your inbox or phone.</p>
+                            </div>
+                            <span class="badge badge-info" style="font-size: 0.8rem; padding: 6px 12px;">Automated Scheduler</span>
                         </div>
-                        <div id="full-notifications-list">
-                            <!-- Populated in JS -->
+                        <!-- Instant Direct Document Download -->
+                        <div style="background: var(--surface-secondary, rgba(255,255,255,0.04)); padding: 14px 18px; border-radius: 10px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid var(--glass-border);">
+                            <div>
+                                <strong style="font-size: 0.9rem; color: var(--text-primary);"><i class="fas fa-file-download" style="color: var(--color-primary); margin-right: 6px;"></i> Instant Report Download:</strong>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 6px;">Download your live sleep & habit audit ledger directly.</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button type="button" class="btn btn-danger" onclick="exportUserReport('pdf')" style="padding: 7px 14px; font-size: 0.8rem;">
+                                    <i class="fas fa-file-pdf"></i> Download PDF
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="exportUserReport('excel')" style="padding: 7px 14px; font-size: 0.8rem;">
+                                    <i class="fas fa-file-excel"></i> Download Excel
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="exportUserReport('csv')" style="padding: 7px 14px; font-size: 0.8rem;">
+                                    <i class="fas fa-file-csv"></i> Download CSV
+                                </button>
+                            </div>
                         </div>
+
+                        <form id="report-delivery-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: end;">
+                            <div>
+                                <label style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Delivery Method</label>
+                                <div class="channel-pill-group" id="report-channel-pills" style="margin: 0;">
+                                    <button type="button" class="channel-pill-btn active" data-channel="email" onclick="selectReportChannel('email')"><i class="fas fa-envelope"></i> Email</button>
+                                    <button type="button" class="channel-pill-btn" data-channel="sms" onclick="selectReportChannel('sms')"><i class="fas fa-sms"></i> SMS</button>
+                                    <button type="button" class="channel-pill-btn" data-channel="both" onclick="selectReportChannel('both')"><i class="fas fa-paper-plane"></i> Both</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="report-frequency-select" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Schedule Frequency</label>
+                                <select id="report-frequency-select" class="form-control form-select" style="font-size: 0.85rem;">
+                                    <option value="weekly" selected>Weekly (Every Sunday 08:00 AM)</option>
+                                    <option value="monthly">Monthly (1st of Each Month)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="report-type-select" style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Report Type</label>
+                                <select id="report-type-select" class="form-control form-select" style="font-size: 0.85rem;">
+                                    <option value="summary" selected>Executive Summary & Habit Score</option>
+                                    <option value="detailed">Comprehensive PDF & Analytics Breakdown</option>
+                                </select>
+                            </div>
+                            <div>
+                                <button type="submit" id="schedule-report-btn" class="btn btn-primary" style="width: 100%; font-size: 0.85rem; padding: 9px 16px;">
+                                    <i class="fas fa-calendar-check" style="margin-right: 6px;"></i> Schedule Report
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
                 <!-- ================= TAB: PROFILE ================= -->
                 <div id="tab-profile" class="tab-content-section">
                     <div class="glass-card primary-hover" style="max-width: 600px; margin: 0 auto;">
-                        <h3 style="margin-bottom: 20px; text-align: center;">My Profile Settings</h3>
+                        <h3 style="margin-bottom: 20px; text-align: center;"><i class="fas fa-user-cog grad-text"></i> My Profile Settings</h3>
 
                         <!-- PROFILE PICTURE UPLOADER -->
                         <div style="text-align: center; margin-bottom: 24px;">
@@ -590,25 +793,84 @@
 
                         <form id="profile-settings-form">
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label for="profile-name">Full Name</label>
-                                <input type="text" id="profile-name" class="form-control" value="Alex Mercer" required>
+                                <label for="profile-name"><i class="fas fa-user" style="color: var(--primary); margin-right: 6px;"></i> Full Name</label>
+                                <input type="text" id="profile-name" class="form-control" placeholder="Enter your full name" required>
                             </div>
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label for="profile-email">Email Address</label>
-                                <input type="email" id="profile-email" class="form-control" value="user@alarm.com"
-                                    required>
+                                <label for="profile-email"><i class="fas fa-envelope" style="color: #38bdf8; margin-right: 6px;"></i> Email Address</label>
+                                <input type="email" id="profile-email" class="form-control" placeholder="Enter your email" required>
                             </div>
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label for="profile-wake-target">Target Wakeup Time</label>
-                                <input type="time" id="profile-wake-target" class="form-control" value="07:30">
+                                <label for="profile-phone"><i class="fas fa-mobile-alt" style="color: #38bdf8; margin-right: 6px;"></i> Mobile Phone Number</label>
+                                <input type="tel" id="profile-phone" class="form-control" placeholder="+1234567890 (For SMS Alerts)">
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Required for SMS alarm notifications and challenge alerts.</small>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="profile-bedtime-target"><i class="fas fa-moon" style="color: #a855f7; margin-right: 6px;"></i> Target Bedtime</label>
+                                <input type="time" id="profile-bedtime-target" class="form-control" value="23:00">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="profile-wake-target"><i class="fas fa-sun" style="color: #f59e0b; margin-right: 6px;"></i> Target Wakeup Time</label>
+                                <input type="time" id="profile-wake-target" class="form-control" value="07:00">
                             </div>
                             <div class="form-group" style="margin-bottom: 20px;">
-                                <label for="profile-coach-code">Associated Coach Code</label>
-                                <input type="text" id="profile-coach-code" class="form-control" value="COACH-SARAH-99"
-                                    placeholder="Enter coach credentials code">
+                                <label for="profile-inactivity-threshold"><i class="fas fa-mobile-alt" style="color: #38bdf8; margin-right: 6px;"></i> Phone Inactivity Threshold (Minutes)</label>
+                                <input type="number" id="profile-inactivity-threshold" class="form-control" value="30" min="5" max="180">
+                                <small style="color: var(--text-secondary); font-size: 0.75rem;">Continuous inactivity period used to estimate sleep start.</small>
                             </div>
-                            <button type="submit" class="btn btn-primary" style="width: 100%;">Save Settings</button>
+                            <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fas fa-save" style="margin-right: 6px;"></i> Save Settings</button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- ================= TAB: NOTIFICATIONS ================= -->
+                <div id="tab-notifications" class="tab-content-section">
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.5rem;"><i class="fas fa-bell grad-text"></i> Notification Center</h2>
+                                <p style="color: var(--text-secondary); margin-top: 4px; font-size: 0.85rem;">Bedtime reminders, wake alerts, habit milestones, multi-channel delivery & audit logs.</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <button id="notif-center-mark-all-btn" class="btn btn-secondary" style="font-size: 0.82rem; padding: 8px 14px;">
+                                    <i class="fas fa-check-double" style="margin-right: 6px;"></i> Mark All Read
+                                </button>
+                                <button id="notif-center-clear-all-btn" class="btn btn-secondary" style="font-size: 0.82rem; padding: 8px 14px; color: #f87171; border-color: rgba(248,113,113,0.3);">
+                                    <i class="fas fa-trash-alt" style="margin-right: 6px;"></i> Clear Read
+                                </button>
+                                <button id="notif-center-prefs-btn" class="btn btn-primary" style="font-size: 0.82rem; padding: 8px 14px;">
+                                    <i class="fas fa-sliders-h" style="margin-right: 6px;"></i> Delivery Preferences
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Chips & Search Bar -->
+                    <div class="glass-card" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.5);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div class="notif-filter-chips" id="notif-filter-chips">
+                                <button class="notif-chip active" data-filter="all"><i class="fas fa-layer-group"></i> All</button>
+                                <button class="notif-chip" data-filter="unread"><i class="fas fa-envelope"></i> Unread</button>
+                                <button class="notif-chip" data-filter="bedtime"><i class="fas fa-moon"></i> Bedtime</button>
+                                <button class="notif-chip" data-filter="wake_up"><i class="fas fa-sun"></i> Wake-Up</button>
+                                <button class="notif-chip" data-filter="habit_alert"><i class="fas fa-chart-line"></i> Habit Alerts</button>
+                                <button class="notif-chip" data-filter="challenge_reminder"><i class="fas fa-brain"></i> Challenges</button>
+                                <button class="notif-chip" data-filter="progress"><i class="fas fa-award"></i> Progress</button>
+                                <button class="notif-chip" data-filter="announcement"><i class="fas fa-bullhorn"></i> Announcements</button>
+                            </div>
+                            <div class="notif-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="notif-center-search" placeholder="Search notifications...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Notification Stream Container -->
+                    <div id="notif-center-list" class="notif-center-container" style="margin-bottom: 30px;">
+                        <div class="notif-empty-state">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>Loading notification center...</p>
+                        </div>
                     </div>
                 </div>
 
@@ -853,16 +1115,239 @@
         </div>
     </div>
 
+    <!-- MODAL: NOTIFICATION PREFERENCES & MULTI-CHANNEL MATRIX -->
+    <div id="notification-preferences-modal" class="modal-overlay">
+        <div class="modal-container" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-sliders-h" style="color: var(--primary); margin-right: 8px;"></i> Notification Delivery Settings</h3>
+                <button class="modal-close-btn" id="notif-prefs-close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="notification-preferences-form">
+                <div class="modal-body" style="max-height: 72vh; overflow-y: auto; padding-right: 8px;">
+                    
+                    <!-- Global Channel Switcher -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; font-weight: 600;">
+                            Global Preferred Channel
+                        </label>
+                        <div class="channel-pill-group">
+                            <button type="button" class="channel-pill-btn active" data-channel="email" onclick="selectGlobalChannel('email')">
+                                <i class="fas fa-envelope"></i> Email
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="sms" onclick="selectGlobalChannel('sms')">
+                                <i class="fas fa-sms"></i> SMS
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="both" onclick="selectGlobalChannel('both')">
+                                <i class="fas fa-paper-plane"></i> Both (Email & SMS)
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="disabled" onclick="selectGlobalChannel('disabled')">
+                                <i class="fas fa-ban"></i> Disabled
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Phone Configuration Box -->
+                    <div class="phone-config-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label for="pref-phone-input" style="font-size: 0.85rem; font-weight: 600; color: #fff; margin: 0;">
+                                <i class="fas fa-mobile-alt" style="color: #38bdf8; margin-right: 6px;"></i> SMS Mobile Number
+                            </label>
+                            <span id="pref-phone-status-badge" class="phone-status-badge badge-missing">
+                                <i class="fas fa-exclamation-triangle"></i> Not Configured
+                            </span>
+                        </div>
+                        <input type="tel" id="pref-phone-input" class="form-control" placeholder="+1234567890 (Include country code)" style="font-size: 0.9rem;">
+                        <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 4px; display: block;">
+                            Required to receive SMS reminders and verification codes. E.164 format recommended.
+                        </small>
+                    </div>
+
+                    <!-- Phone Guidance Warning Alert (Dynamic) -->
+                    <div id="phone-guidance-alert" class="phone-guidance-alert" style="display: none;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.1rem; color: #f59e0b; margin-top: 2px;"></i>
+                        <div style="font-size: 0.8rem; color: #fde68a;">
+                            <strong>Mobile Number Needed:</strong> You have selected SMS delivery for one or more reminder categories, but have not configured a valid phone number. Please enter your mobile number above to ensure SMS delivery.
+                        </div>
+                    </div>
+
+                    <!-- Category Delivery Matrix -->
+                    <div class="pref-matrix-container">
+                        <div class="pref-matrix-header">
+                            <span style="font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em;">Category</span>
+                            <div class="pref-matrix-col-labels">
+                                <span><i class="fas fa-envelope"></i> Email</span>
+                                <span><i class="fas fa-sms"></i> SMS</span>
+                            </div>
+                        </div>
+
+                        <!-- 1. Bedtime Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-moon" style="color: #a855f7;"></i> Bedtime Reminders</span>
+                                <span class="pref-matrix-desc">Smart alerts before recommended sleep and wind-down periods.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-bedtime-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-bedtime-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 2. Wake-Up Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-sun" style="color: #f59e0b;"></i> Wake-Up Reminders</span>
+                                <span class="pref-matrix-desc">Advance notices for upcoming scheduled alarms.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-wakeup-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-wakeup-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 3. Habit Alerts -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-chart-line" style="color: #ef4444;"></i> Habit & Behavioral Alerts</span>
+                                <span class="pref-matrix-desc">Warnings on snooze spikes, wake inconsistency, and score dips.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-habit-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-habit-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 4. Challenge Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-brain" style="color: #38bdf8;"></i> Challenge Reminders</span>
+                                <span class="pref-matrix-desc">Prompts for verification challenges and cognitive drills.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-challenge-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-challenge-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 5. Progress Milestones -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-award" style="color: #22c55e;"></i> Progress & Streak Milestones</span>
+                                <span class="pref-matrix-desc">Celebrations when hitting streaks and habit score improvements.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-progress-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-progress-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 6. Platform Announcements -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-bullhorn" style="color: #f97316;"></i> Platform Announcements</span>
+                                <span class="pref-matrix-desc">System updates, maintenance schedules, and feature news.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-announcement-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-announcement-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lead Times & Browser Push -->
+                    <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 10px;">Lead Time & Push Controls</h4>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="pref-bedtime-lead" style="font-size: 0.8rem; color: var(--text-secondary);">Bedtime Advance Notice</label>
+                            <select id="pref-bedtime-lead" class="form-control form-select" style="font-size: 0.85rem;">
+                                <option value="15">15 Minutes Before</option>
+                                <option value="30" selected>30 Minutes Before</option>
+                                <option value="45">45 Minutes Before</option>
+                                <option value="60">1 Hour Before</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="pref-wakeup-lead" style="font-size: 0.8rem; color: var(--text-secondary);">Wake-Up Advance Notice</label>
+                            <select id="pref-wakeup-lead" class="form-control form-select" style="font-size: 0.85rem;">
+                                <option value="5">5 Minutes Before</option>
+                                <option value="10" selected>10 Minutes Before</option>
+                                <option value="15">15 Minutes Before</option>
+                                <option value="30">30 Minutes Before</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #fff;"><i class="fas fa-desktop" style="color: #818cf8; margin-right: 6px;"></i> Browser Push Notifications</h4>
+                            <p style="margin: 2px 0 0; font-size: 0.75rem; color: var(--text-secondary);">Instant alerts when the browser window is active.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" id="notif-request-permission-btn" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;">
+                                Request Permission
+                            </button>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pref-browser" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel-btn" id="notif-prefs-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="notif-prefs-save-btn">Save Preferences</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Script Sources -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../js/config.js?v=1.0.8"></script>
-    <script src="../js/utils.js?v=1.0.8"></script>
-    <script src="../js/auth.js?v=1.0.8"></script>
+    <script src="../js/config.js?v=1.0.9"></script>
+    <script src="../js/utils.js?v=1.0.9"></script>
+    <script src="../js/auth.js?v=1.0.9"></script>
     <script>
         // Protect user page
         protectPage('user');
     </script>
-    <script src="../js/user.js?v=1.0.8"></script>
+    <script src="../js/user.js?v=1.0.9"></script>
+    <script src="../js/notifications.js?v=1.1.0"></script>
 </body>
 
 </html>

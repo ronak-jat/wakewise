@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
 </head>
+
 <body data-theme="dark">
     <div class="db-wrapper">
         <aside class="db-sidebar">
@@ -17,31 +19,206 @@
                 </div>
             </div>
             <ul class="sidebar-menu">
-                <li class="sidebar-menu-item"><a href="dashboard-admin.html#dashboard"><i class="fas fa-sliders-h"></i> <span>Dashboard</span></a></li>
-                <li class="sidebar-menu-item"><a href="users.html"><i class="fas fa-users-cog"></i> <span>Users Console</span></a></li>
-                <li class="sidebar-menu-item"><a href="roles.html"><i class="fas fa-key"></i> <span>Role Permissions</span></a></li>
-                <li class="sidebar-menu-item active"><a href="reports.html"><i class="fas fa-file-alt"></i> <span>Reports & Exports</span></a></li>
-                <li class="sidebar-menu-item"><a href="analytics.html"><i class="fas fa-chart-bar"></i> <span>System Analytics</span></a></li>
+                <li class="sidebar-menu-item"><a href="dashboard-admin.html#dashboard"><i class="fas fa-sliders-h"></i>
+                        <span>Dashboard</span></a></li>
+                <li class="sidebar-menu-item"><a href="users.html"><i class="fas fa-users-cog"></i> <span>Users
+                            Console</span></a></li>
+                <li class="sidebar-menu-item"><a href="roles.html"><i class="fas fa-key"></i> <span>Role
+                            Permissions</span></a></li>
+                <li class="sidebar-menu-item active"><a href="reports.html"><i class="fas fa-file-alt"></i>
+                        <span>Reports & Exports</span></a></li>
+                <li class="sidebar-menu-item"><a href="analytics.html"><i class="fas fa-chart-bar"></i> <span>System
+                            Analytics</span></a></li>
             </ul>
         </aside>
 
         <main class="db-main" style="padding: 24px;">
-            <div class="glass-card primary-hover" style="max-width: 600px; margin: 40px auto; text-align: center;">
-                <i class="fas fa-file-archive" style="font-size: 3.5rem; color: var(--color-primary); margin-bottom: 20px;"></i>
-                <h3 style="margin-bottom: 12px;">Export Core Platform Database</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 25px;">Export a structured zip backup or text ledger containing user logins, diagnostic logs, and configurations.</p>
-                <button class="btn btn-primary" onclick="simulateAdminExport()">
-                    <i class="fas fa-download"></i> Download Audit Backup Bundle
-                </button>
+            <div class="glass-card primary-hover" style="margin-bottom: 24px; padding: 22px 28px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="margin: 0; font-size: 1.4rem;"><i class="fas fa-file-export grad-text"></i> Data
+                            Export & Audit Archive Center</h2>
+                        <p style="color: var(--text-secondary); margin-top: 4px; font-size: 0.85rem;">Download separated
+                            modular datasets or consolidated master ledgers in PDF, Excel, or CSV format directly from
+                            PostgreSQL.</p>
+                    </div>
+                    <span class="badge badge-info" style="padding: 6px 14px; font-size: 0.85rem;"><i
+                            class="fas fa-database"></i> Live Database Sync</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+                <!-- 1. Users Directory Export -->
+                <div class="glass-card primary-hover"
+                    style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px;">
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="stat-icon primary"
+                                    style="width: 44px; height: 44px; font-size: 1.2rem; margin: 0;"><i
+                                        class="fas fa-users"></i></div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;">User Accounts</h3>
+                                    <span style="font-size: 0.78rem; color: var(--text-secondary);">Profiles & Role
+                                        Directory</span>
+                                </div>
+                            </div>
+                            <span class="badge badge-primary" style="font-size: 0.75rem;">Users Table</span>
+                        </div>
+                        <p
+                            style="color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; margin-bottom: 20px;">
+                            Export all registered account credentials, email addresses, security roles (User, Coach,
+                            Admin), alarm counts, and habit scores.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-danger" onclick="exportAdminReport('pdf', 'users')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn btn-success" onclick="exportAdminReport('excel', 'users')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download Excel">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button class="btn btn-primary" onclick="exportAdminReport('csv', 'users')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download CSV">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Alarms Configuration Export -->
+                <div class="glass-card warning-hover"
+                    style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px;">
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="stat-icon warning"
+                                    style="width: 44px; height: 44px; font-size: 1.2rem; margin: 0;"><i
+                                        class="fas fa-bell"></i></div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;">Configured Alarms</h3>
+                                    <span style="font-size: 0.78rem; color: var(--text-secondary);">Wake-Up Schedules &
+                                        Protocols</span>
+                                </div>
+                            </div>
+                            <span class="badge badge-warning" style="font-size: 0.75rem;">Alarms Table</span>
+                        </div>
+                        <p
+                            style="color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; margin-bottom: 20px;">
+                            Export all user wake-up schedules, repeat intervals, active/inactive statuses, and
+                            multi-step cognitive verification methods.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-danger" onclick="exportAdminReport('pdf', 'alarms')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn btn-success" onclick="exportAdminReport('excel', 'alarms')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download Excel">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button class="btn btn-primary" onclick="exportAdminReport('csv', 'alarms')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download CSV">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Audit & Security Logs Export -->
+                <div class="glass-card danger-hover"
+                    style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px;">
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="stat-icon danger"
+                                    style="width: 44px; height: 44px; font-size: 1.2rem; margin: 0;"><i
+                                        class="fas fa-terminal"></i></div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;">Platform Audit Logs</h3>
+                                    <span style="font-size: 0.78rem; color: var(--text-secondary);">Security & Event
+                                        Trail</span>
+                                </div>
+                            </div>
+                            <span class="badge badge-danger" style="font-size: 0.75rem;">Logs Stream</span>
+                        </div>
+                        <p
+                            style="color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; margin-bottom: 20px;">
+                            Export real-time diagnostic system events, auth attempts, parameter updates, verification
+                            failures, and admin actions.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-danger" onclick="exportAdminReport('pdf', 'logs')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn btn-success" onclick="exportAdminReport('excel', 'logs')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download Excel">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button class="btn btn-primary" onclick="exportAdminReport('csv', 'logs')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download CSV">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. All-in-One Master Bundle -->
+                <div class="glass-card secondary-hover"
+                    style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; border: 1px solid var(--color-primary);">
+                    <div>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="stat-icon secondary"
+                                    style="width: 44px; height: 44px; font-size: 1.2rem; margin: 0;"><i
+                                        class="fas fa-file-archive"></i></div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;">All-In-One Master Bundle</h3>
+                                    <span style="font-size: 0.78rem; color: var(--text-secondary);">Comprehensive
+                                        Platform Ledger</span>
+                                </div>
+                            </div>
+                            <span class="badge badge-success" style="font-size: 0.75rem;">Consolidated</span>
+                        </div>
+                        <p
+                            style="color: var(--text-secondary); font-size: 0.84rem; line-height: 1.45; margin-bottom: 20px;">
+                            Download complete consolidated database backup ledger containing all 3 modules (User
+                            Accounts, Configured Alarms, and Audit Logs) in a single document.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-danger" onclick="exportAdminReport('pdf', 'all')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i> Master PDF
+                        </button>
+                        <button class="btn btn-success" onclick="exportAdminReport('excel', 'all')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download Excel">
+                            <i class="fas fa-file-excel"></i> Master Excel
+                        </button>
+                        <button class="btn btn-primary" onclick="exportAdminReport('csv', 'all')"
+                            style="flex: 1; padding: 8px 10px; font-size: 0.82rem;" title="Download CSV">
+                            <i class="fas fa-file-csv"></i> Master CSV
+                        </button>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
 
     <!-- Script Sources -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../js/utils.js?v=1.0.6"></script>
-    <script src="../js/auth.js?v=1.0.6"></script>
+    <script src="../js/config.js?v=1.0.9"></script>
+    <script src="../js/utils.js?v=1.0.9"></script>
+    <script src="../js/auth.js?v=1.0.9"></script>
     <script>protectPage('admin');</script>
-    <script src="../js/admin.js?v=1.0.1"></script>
+    <script src="../js/admin.js?v=1.0.9"></script>
 </body>
+
 </html>

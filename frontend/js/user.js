@@ -10,10 +10,15 @@ let alarmTriggerCache = new Set();
 
 
 function getAuthHeaders() {
-    const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+    let token = '';
+    try {
+        const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+        token = session.accessToken || session.token || localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
+    } catch (_) {}
+
     return {
         'Content-Type': 'application/json',
-        'Authorization': session.accessToken ? `Bearer ${session.accessToken}` : ''
+        'Authorization': token ? `Bearer ${token}` : ''
     };
 }
 
@@ -726,35 +731,31 @@ async function checkAlarmTriggers() {
     }
 }
 
-let habits = JSON.parse(localStorage.getItem('user_habits')) || [
-    { id: 'h1', label: 'Hydrate (500ml Water)', completed: false, pts: 10 },
-    { id: 'h2', label: '5 Mins Deep Breathing', completed: false, pts: 15 },
-    { id: 'h3', label: 'No Screen Time 30 mins before sleep', completed: false, pts: 20 },
-    { id: 'h4', label: 'Log morning sleep quality score', completed: false, pts: 10 }
-];
-
 let challengeHistory = JSON.parse(localStorage.getItem('user_challenges')) || [
     { mode: 'Mental Arithmetic', score: '100% (Pass)', date: 'Today, 07:34 AM' }
 ];
 
-let notifications = JSON.parse(localStorage.getItem('user_notifications')) || [
-    { icon: 'fa-user-md', color: 'blue', title: 'Coach Sarah sent a message', text: 'Great sleep pattern yesterday. Keep pushing the morning exercises!', time: '10 minutes ago' },
-    { icon: 'fa-puzzle-piece', color: 'purple', title: 'New Challenge drill unlocked', text: 'Arithmetic Speed Run is now available.', time: '2 hours ago' },
-    { icon: 'fa-bell', color: 'yellow', title: 'Hydration reminder', text: 'Time to drink water and log your progress score.', time: '4 hours ago' }
-];
+let notifications = [];
 
 // Tracks daily challenge completion for the progress bar
 let dailyChallengeCompleted = false;
 
 // 2. Tab Navigation Switcher
 window.switchTab = (tabId) => {
+    if (!tabId) return;
+
+    let targetId = tabId;
+    if (!document.getElementById(targetId) && document.getElementById(`tab-${tabId}`)) {
+        targetId = `tab-${tabId}`;
+    }
+
     // Hide all tabs
     document.querySelectorAll('.tab-content-section').forEach(section => {
         section.classList.remove('active');
     });
 
     // Show selected tab
-    const activeSection = document.getElementById(tabId);
+    const activeSection = document.getElementById(targetId);
     if (activeSection) {
         activeSection.classList.add('active');
     }
@@ -762,7 +763,8 @@ window.switchTab = (tabId) => {
     // Update active sidebar item styling
     document.querySelectorAll('.sidebar-menu-item').forEach(item => {
         item.classList.remove('active');
-        if (item.dataset.tab === tabId) {
+        const itemTab = item.dataset.tab;
+        if (itemTab === targetId || itemTab === tabId || itemTab === targetId.replace('tab-', '')) {
             item.classList.add('active');
         }
     });
@@ -770,13 +772,22 @@ window.switchTab = (tabId) => {
     // Update Breadcrumb Text
     const crumbText = document.getElementById('breadcrumb-current');
     if (crumbText) {
-        const item = document.querySelector(`.sidebar-menu-item[data-tab="${tabId}"] span`);
-        crumbText.textContent = item ? item.textContent : 'Profile';
+        const item = document.querySelector(`.sidebar-menu-item.active span`);
+        crumbText.textContent = item ? item.textContent : (targetId === 'tab-profile' ? 'Profile' : 'Dashboard');
+    }
+
+    if (targetId === 'tab-profile' && typeof loadUserProfileSettings === 'function') {
+        loadUserProfileSettings();
+    }
+
+    const cleanHash = targetId.replace('tab-', '');
+    if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, null, `#${cleanHash}`);
     }
 
     // Persist active tab state for later page visits
     if (typeof window.setDashboardActiveTab === 'function') {
-        window.setDashboardActiveTab(tabId);
+        window.setDashboardActiveTab(targetId);
     }
 
     // Close sidebar on mobile after tab switches
@@ -960,28 +971,28 @@ document.querySelector('.nav-toggle-theme')?.addEventListener('click', () => {
 
 // 4. Progress Bar and Goal Calculations
 function updateGoalProgress() {
-    const totalHabits = habits.length;
-    const completedHabits = habits.filter(h => h.completed).length;
-
-    // Daily Goals include:
-    // - Each habit in checklist (completed is checked)
-    // - Math Cognitive drill (completed for today)
-    const totalGoalItems = totalHabits + 1;
-    const completedGoalItems = completedHabits + (dailyChallengeCompleted ? 1 : 0);
-
-    const percentage = Math.round((completedGoalItems / totalGoalItems) * 100);
+    let percentage = 75;
+    if (window.lastHabitScoreData && typeof window.lastHabitScoreData.habit_score === 'number') {
+        percentage = Math.round(window.lastHabitScoreData.habit_score);
+    } else {
+        const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+        percentage = session.habit_score !== undefined ? Math.round(session.habit_score) : 80;
+    }
+    percentage = Math.min(100, Math.max(0, percentage));
 
     const goalBar = document.getElementById('goal-bar');
     const goalPercent = document.getElementById('goal-percent');
 
     if (goalBar && goalPercent) {
         goalBar.style.width = `${percentage}%`;
-        goalPercent.textContent = `${percentage}% Completed`;
+        goalPercent.textContent = `${percentage}% Habit Alignment`;
 
-        if (percentage === 100) {
+        if (percentage >= 80) {
             goalPercent.className = 'goal-percent-bubble badge-success';
-        } else {
+        } else if (percentage >= 50) {
             goalPercent.className = 'goal-percent-bubble';
+        } else {
+            goalPercent.className = 'goal-percent-bubble badge-warning';
         }
     }
 }
@@ -1030,16 +1041,23 @@ function renderAlarms() {
 
     if (alarmsTable) {
         alarmsTable.innerHTML = '';
-        if (alarms.length === 0) {
-            alarmsTable.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-secondary);">No alarms configured.</td></tr>`;
+        const activeAlarmsList = alarms.filter(a => a.is_active);
+        const displayAlarms = activeAlarmsList.slice(0, 3);
+
+        if (displayAlarms.length === 0) {
+            if (alarms.length > 0) {
+                alarmsTable.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-secondary);"><i class="fas fa-toggle-off" style="margin-right: 6px; opacity: 0.6;"></i>No active alarms enabled. <a href="#alarms" onclick="switchTab('tab-alarms')" style="color: var(--color-primary); text-decoration: underline; margin-left: 4px;">Enable alarms in Manager &rarr;</a></td></tr>`;
+            } else {
+                alarmsTable.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-secondary);">No alarms configured.</td></tr>`;
+            }
         } else {
-            alarms.forEach(a => {
+            displayAlarms.forEach(a => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${a.title}</strong></td>
+                    <td><strong>${escapeHtml(a.title || 'Alarm')}</strong></td>
                     <td><i class="far fa-clock text-muted" style="margin-right:8px;"></i> ${formatTime12(a.alarm_time)}</td>
                     <td><span class="badge ${a.challenge && a.challenge.toLowerCase() !== 'none' ? 'badge-info' : 'badge-warning'}">${getChallengeLabel(a.challenge)}</span></td>
-                    <td>${a.is_active ? '<span class="badge badge-success">Standby</span>' : '<span class="badge badge-danger">Disabled</span>'}</td>
+                    <td><span class="badge badge-success"><i class="fas fa-check-circle" style="margin-right: 3px;"></i> Active</span></td>
                     <td>
                         <label class="switch">
                             <input type="checkbox" ${a.is_active ? 'checked' : ''} onchange="toggleAlarmActive(${a.id})">
@@ -1195,52 +1213,7 @@ function formatTime12(timeString) {
     return `${displayHours}:${minutesStr} ${ampm}`;
 }
 
-// 6. Habit Checklist Rendering
-function renderHabits() {
-    const listContainer = document.getElementById('habits-list-container');
-    if (!listContainer) return;
 
-    localStorage.setItem('user_habits', JSON.stringify(habits));
-
-    listContainer.innerHTML = '';
-    habits.forEach(h => {
-        const div = document.createElement('div');
-        div.className = 'action-card';
-        div.style.gap = '15px';
-        div.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; flex-grow: 1;">
-                <input type="checkbox" ${h.completed ? 'checked' : ''} onchange="toggleHabitCompleted('${h.id}')" style="width: 18px; height: 18px; cursor: pointer;">
-                <div class="action-info">
-                    <h4 style="${h.completed ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${h.label}</h4>
-                    <p style="color: var(--color-primary); font-weight: 600;">+${h.pts} Habit Points</p>
-                </div>
-            </div>
-            <span class="badge ${h.completed ? 'badge-success' : 'badge-warning'}">${h.completed ? 'Completed' : 'Pending'}</span>
-        `;
-        listContainer.appendChild(div);
-    });
-
-    // Update habit score metric
-    const habitScore = 65 + (habits.filter(h => h.completed).length * 8);
-    const scoreElem = document.getElementById('stat-habit-score');
-    if (scoreElem) scoreElem.textContent = Math.min(habitScore, 100);
-
-    updateGoalProgress();
-}
-
-window.toggleHabitCompleted = (id) => {
-    const index = habits.findIndex(h => h.id === id);
-    if (index !== -1) {
-        habits[index].completed = !habits[index].completed;
-        renderHabits();
-
-        if (habits[index].completed) {
-            Toast.show('Habit Logged!', `Earned +${habits[index].pts} points. Streak updated!`, 'success', 2500);
-        } else {
-            Toast.show('Habit Revoked', 'Habit task marked pending.', 'warning', 2000);
-        }
-    }
-};
 
 const clientFallbackChallenges = [
     {
@@ -1521,38 +1494,59 @@ function renderHistoryLog() {
     }
 }
 
-// 8. Notifications Manager
-function renderNotifications() {
+// 8. Notifications Manager (Real PostgreSQL Notifications)
+async function renderNotifications() {
     const list = document.getElementById('full-notifications-list');
     if (!list) return;
 
-    localStorage.setItem('user_notifications', JSON.stringify(notifications));
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/notifications/?limit=20`, {
+            headers: getAuthHeaders()
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            const realNotifs = data.notifications || [];
+            list.innerHTML = '';
+            if (realNotifs.length === 0) {
+                list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; padding:20px;">No active alerts.</p>';
+                return;
+            }
 
-    list.innerHTML = '';
-    if (notifications.length === 0) {
-        list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; padding:20px;">No new alerts.</p>';
-        return;
+            realNotifs.forEach(n => {
+                const item = document.createElement('div');
+                item.className = `notification-item ${n.is_read ? 'read' : 'unread'}`;
+                const iconClass = n.type === 'alarm' ? 'fa-bell' : (n.type === 'challenge' ? 'fa-puzzle-piece' : (n.type === 'progress' ? 'fa-chart-line' : 'fa-info-circle'));
+                const colorClass = n.type === 'alarm' ? 'yellow' : (n.type === 'challenge' ? 'purple' : 'blue');
+                item.innerHTML = `
+                    <div class="notification-item-icon ${colorClass}"><i class="fas ${iconClass}"></i></div>
+                    <div class="notification-text">
+                        <h4>${n.title}</h4>
+                        <p>${n.message}</p>
+                        <span>${n.time_ago || (n.created_at ? new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Recently')}</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            return;
+        }
+    } catch (e) {
+        console.debug('Error fetching user notifications:', e);
     }
 
-    notifications.forEach(n => {
-        const item = document.createElement('div');
-        item.className = 'notification-item';
-        item.innerHTML = `
-            <div class="notification-item-icon ${n.color}"><i class="fas ${n.icon}"></i></div>
-            <div class="notification-text">
-                <h4>${n.title}</h4>
-                <p>${n.text}</p>
-                <span>${n.time}</span>
-            </div>
-        `;
-        list.appendChild(item);
-    });
+    list.innerHTML = '<p style="color:var(--text-secondary); text-align:center; padding:20px;">No new alerts.</p>';
 }
 
-window.clearNotifications = () => {
-    notifications = [];
+window.clearNotifications = async () => {
+    try {
+        await fetch(`${window.API_BASE_URL}/api/notifications/mark-all-read`, {
+            method: 'POST',
+            headers: getAuthHeaders()
+        });
+    } catch (_) {}
     renderNotifications();
-    Toast.show('Logs Flushed', 'Cleared all alerts.', 'info', 2000);
+    if (typeof Toast !== 'undefined') {
+        Toast.show('Notifications Cleared', 'All alerts marked as read.', 'info', 2000);
+    }
 };
 
 // 9. Add Alarm Form Submission
@@ -1718,43 +1712,122 @@ if (addAlarmForm) {
 
 // 10. Profile Settings Form
 const profileForm = document.getElementById('profile-settings-form');
-if (profileForm) {
-    // Fill session data on load
+async function loadUserProfileSettings() {
+    const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    // 1. Instant local session population so inputs are never blank
     const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
-    if (session.name) document.getElementById('profile-name').value = session.name;
-    if (session.email) document.getElementById('profile-email').value = session.email;
+    if (session.name) setVal('profile-name', session.name);
+    if (session.email) setVal('profile-email', session.email);
+    if (session.phone_number) setVal('profile-phone', session.phone_number);
+    if (session.target_bedtime) setVal('profile-bedtime-target', session.target_bedtime);
+    if (session.target_wake_time) setVal('profile-wake-target', session.target_wake_time);
+    if (session.inactivity_threshold_minutes) setVal('profile-inactivity-threshold', session.inactivity_threshold_minutes);
 
-    profileForm.addEventListener('submit', (e) => {
+    if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
+
+    // 2. Fetch latest verified profile from API
+    try {
+        const headers = getAuthHeaders();
+        const response = await fetch(`${window.API_BASE_URL}/api/auth/me`, { headers });
+        if (response.ok) {
+            const user = await response.json();
+            if (user.name) setVal('profile-name', user.name);
+            if (user.email) setVal('profile-email', user.email);
+            if (user.phone_number) setVal('profile-phone', user.phone_number);
+            if (user.target_bedtime) setVal('profile-bedtime-target', user.target_bedtime);
+            if (user.target_wake_time) setVal('profile-wake-target', user.target_wake_time);
+            if (user.inactivity_threshold_minutes) setVal('profile-inactivity-threshold', user.inactivity_threshold_minutes);
+
+            // Synchronize active session in localStorage
+            session.name = user.name || session.name;
+            session.email = user.email || session.email;
+            session.phone_number = user.phone_number;
+            session.target_bedtime = user.target_bedtime;
+            session.target_wake_time = user.target_wake_time;
+            session.inactivity_threshold_minutes = user.inactivity_threshold_minutes;
+            localStorage.setItem('sessionUser', JSON.stringify(session));
+
+            if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
+        }
+    } catch (e) {
+        console.warn('Could not load user profile from API, fallback used:', e);
+    }
+}
+loadUserProfileSettings();
+
+if (profileForm) {
+    profileForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const nameVal = document.getElementById('profile-name').value;
-        const emailVal = document.getElementById('profile-email').value;
+        const nameVal = document.getElementById('profile-name')?.value;
+        const emailVal = document.getElementById('profile-email')?.value;
+        const phoneVal = document.getElementById('profile-phone')?.value;
+        const bedtimeVal = document.getElementById('profile-bedtime-target')?.value;
+        const wakeVal = document.getElementById('profile-wake-target')?.value;
+        const thresholdVal = parseInt(document.getElementById('profile-inactivity-threshold')?.value) || 30;
 
-        // Update session
-        session.name = nameVal;
-        session.email = emailVal;
-        localStorage.setItem('sessionUser', JSON.stringify(session));
+        try {
+            const headers = getAuthHeaders();
+            const res = await fetch(`${window.API_BASE_URL}/api/auth/profile`, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                    name: nameVal,
+                    email: emailVal,
+                    phone_number: phoneVal,
+                    target_bedtime: bedtimeVal,
+                    target_wake_time: wakeVal,
+                    inactivity_threshold_minutes: thresholdVal
+                })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+                session.name = updated.name;
+                session.email = updated.email;
+                session.phone_number = updated.phone_number;
+                session.target_bedtime = updated.target_bedtime;
+                session.target_wake_time = updated.target_wake_time;
+                session.inactivity_threshold_minutes = updated.inactivity_threshold_minutes;
+                localStorage.setItem('sessionUser', JSON.stringify(session));
 
-        // Update navbar visual elements
-        if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
+                if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
+                Toast.show('Profile Settings Saved', 'Your profile, phone number, and sleep schedule were updated successfully.', 'success', 2500);
 
-        Toast.show('Profile Settings Saved', 'Your workspace details were compiled successfully.', 'success', 2500);
+                // Refresh habit score and sleep adherence immediately
+                if (typeof fetchHabitScoreData === 'function') {
+                    fetchHabitScoreData(typeof currentHabitPeriod !== 'undefined' ? currentHabitPeriod : '7days');
+                }
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                Toast.show('Update Failed', errData.detail || 'Could not update profile.', 'danger', 3000);
+            }
+        } catch (err) {
+            console.error('Error saving profile settings:', err);
+            Toast.show('Network Error', 'Could not save profile settings to server.', 'warning', 2500);
+        }
     });
 }
 
-// 11. Mock PDF report builder download
+// 11. PDF/Text report builder download
 window.simulateReportDownload = () => {
+    const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+    const userName = session.name || (session.email ? session.email.split('@')[0] : 'User');
     Toast.show('Preparing Report...', 'Assembling sleep log and cognitive matrix scores.', 'info', 2000);
     setTimeout(() => {
         const text = `WAKEWISE AI - SLEEP PERFORMANCE REPORT
 --------------------------------------
-REPORT FOR: Alex Mercer
+REPORT FOR: ${userName}
 DATE GENERATED: ${new Date().toLocaleDateString()}
 SLEEP CONSISTENCY RATIO: 94%
 AVERAGE COGNITIVE ACCURACY: 92%
 WAKE STREAK ACHIEVED: 14 Days
 --------------------------------------
-RECOMMENDATIONS FROM DR. SARAH JENKINS:
-"Great sleep pattern yesterday. Keep pushing the morning exercises!"
+RECOMMENDATIONS:
+"Great sleep pattern adherence. Keep maintaining consistent wake schedules!"
 --------------------------------------
 Report generated dynamically by WakeWise AI Platform.`;
 
@@ -1762,7 +1835,7 @@ Report generated dynamically by WakeWise AI Platform.`;
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `WakeWiseAI-AlexMercer-Report.txt`;
+        a.download = `WakeWiseAI-${userName.replace(/\s+/g, '_')}-Report.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1777,19 +1850,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
     fetchAlarmsFromServer();
     fetchAnalyticsData();
+    fetchHabitScoreData();
     fetchBehavioralAnalyticsData();
-    renderHabits();
     renderHistoryLog();
     renderNotifications();
-
-    // Setup background dynamic toast reminders to simulate coach feedback
-    setTimeout(() => {
-        Toast.show('Coach Alert', 'Sarah Jenkins: Hydration is key. Log your water intake!', 'info', 4000);
-    }, 8000);
-
-    setTimeout(() => {
-        Toast.show('Routine Notice', 'Time to start wind-down routines. Sleep triggers in 1 Hour.', 'warning', 4500);
-    }, 20000);
 });
 
 // (Duplicate checkTriggeredAlarm removed; unified in startAlarmMonitor)
@@ -1799,6 +1863,152 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================================================
 let analyticsChartInstance = null;
 let dbAnalyticsChartInstance = null;
+
+let currentHabitPeriod = 7;
+
+window.setHabitPeriod = function(periodDays) {
+    currentHabitPeriod = periodDays;
+    [1, 7, 30].forEach(p => {
+        const btn = document.getElementById(`habit-period-${p}`);
+        if (btn) {
+            btn.className = (p === periodDays) ? 'btn btn-primary' : 'btn btn-secondary';
+        }
+    });
+    fetchHabitScoreData(periodDays);
+};
+
+// Activity Heartbeat debounced tracker (Requirement 14 & 5B)
+let lastActivityHeartbeat = 0;
+function reportUserActivityHeartbeat() {
+    const now = Date.now();
+    if (now - lastActivityHeartbeat < 60000) return; // Debounce to at most once per minute
+    lastActivityHeartbeat = now;
+    const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+    if (!session.accessToken) return;
+
+    fetch(`${window.API_BASE_URL}/api/analytics/activity`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ timestamp: new Date().toISOString() })
+    }).catch(e => console.debug('Activity heartbeat ping note:', e));
+}
+
+// Attach activity listeners for phone/browser interaction
+['click', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+    window.addEventListener(evt, reportUserActivityHeartbeat, { passive: true });
+});
+
+async function fetchHabitScoreData(periodDays = 7) {
+    try {
+        const headers = getAuthHeaders();
+        const [scoreRes, weeklyRes, sleepRes] = await Promise.all([
+            fetch(`${window.API_BASE_URL}/api/analytics/habit-score?period_days=${periodDays}`, { headers }),
+            fetch(`${window.API_BASE_URL}/api/analytics/habit-score/weekly`, { headers }),
+            fetch(`${window.API_BASE_URL}/api/analytics/sleep-adherence`, { headers })
+        ]);
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        const setProgress = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.style.width = `${Math.max(0, Math.min(100, Number(value) || 0))}%`;
+        };
+
+        if (scoreRes.ok) {
+            const data = await scoreRes.json();
+            const breakdown = data.breakdown || {};
+            const level = data.level || 'Poor';
+            const score = Number(data.habit_score || 0);
+
+            setText('stat-habit-score', score.toFixed(0));
+            setText('habit-score-value', score.toFixed(0));
+            setText('habit-score-level', level);
+            setText('habit-wake-score', `${Number(breakdown.wake_up_consistency || 0).toFixed(0)}/100`);
+            setText('habit-challenge-score', `${Number(breakdown.challenge_completion || 0).toFixed(0)}/100`);
+            setText('habit-snooze-score', `${Number(breakdown.snooze_reduction || 0).toFixed(0)}/100`);
+            setText('habit-sleep-score', `${Number(breakdown.sleep_schedule_adherence || 0).toFixed(0)}/100`);
+
+            setProgress('habit-wake-bar', breakdown.wake_up_consistency || 0);
+            setProgress('habit-challenge-bar', breakdown.challenge_completion || 0);
+            setProgress('habit-snooze-bar', breakdown.snooze_reduction || 0);
+            setProgress('habit-sleep-bar', breakdown.sleep_schedule_adherence || 0);
+
+            const listEl = document.getElementById('habit-insights-list');
+            if (listEl) {
+                const insights = Array.isArray(data.insights) && data.insights.length ? data.insights : ['Start completing challenges and tracking routine to generate habit insights.'];
+                listEl.innerHTML = insights.map(item => `<li>${item}</li>`).join('');
+            }
+
+            const badge = document.getElementById('habit-score-level');
+            if (badge) {
+                badge.className = 'badge';
+                const mapping = {
+                    'Excellent': 'badge-success',
+                    'Good': 'badge-success',
+                    'Fair': 'badge-warning',
+                    'Needs Improvement': 'badge-warning',
+                    'Poor': 'badge-danger'
+                };
+                badge.classList.add(mapping[level] || 'badge-secondary');
+            }
+        }
+
+        // Weekly comparison & deltas
+        if (weeklyRes.ok) {
+            const history = await weeklyRes.json();
+            const thisWk = history.this_week ?? history.weekly_scores?.['This Week'] ?? '--';
+            const lastWk = history.last_week ?? history.weekly_scores?.['Last Week'] ?? '--';
+            const changeVal = history.change ?? history.weekly_scores?.['Change'] ?? 0;
+            const changes = history.score_changes || {};
+
+            setText('habit-history-this-week', typeof thisWk === 'number' ? thisWk.toFixed(0) : thisWk);
+            setText('habit-history-last-week', typeof lastWk === 'number' ? lastWk.toFixed(0) : lastWk);
+
+            const changeEl = document.getElementById('habit-history-change');
+            if (changeEl) {
+                const formatted = changeVal > 0 ? `+${changeVal.toFixed(0)}` : `${changeVal.toFixed(0)}`;
+                changeEl.textContent = formatted;
+                changeEl.style.color = changeVal >= 0 ? '#22c55e' : '#ef4444';
+            }
+
+            const wakeDelta = changes.wake_up_consistency ?? 0;
+            const chalDelta = changes.challenge_completion ?? 0;
+            setText('habit-delta-wake', wakeDelta >= 0 ? `+${wakeDelta.toFixed(0)}` : `${wakeDelta.toFixed(0)}`);
+            setText('habit-delta-challenge', chalDelta >= 0 ? `+${chalDelta.toFixed(0)}` : `${chalDelta.toFixed(0)}`);
+        }
+
+        // Sleep Routine Details & Phone Inactivity Estimation
+        if (sleepRes.ok) {
+            const sleep = await sleepRes.json();
+            setText('sleep-target-bedtime', sleep.target_bedtime || '--:--');
+            setText('sleep-estimated-time', sleep.estimated_sleep_time || 'Pending...');
+            setText('sleep-target-wake', sleep.target_wake_time || '--:--');
+            setText('sleep-actual-wake', sleep.actual_wake_time || '--:--');
+
+            const insightText = sleep.insight || sleep.summary || 'Sleep Schedule Adherence: Insufficient Data';
+            setText('sleep-adherence-insight-text', insightText);
+
+            const badge = document.getElementById('habit-sleep-estimate-badge');
+            if (badge) {
+                if (sleep.estimated_from_phone_inactivity) {
+                    badge.textContent = 'Estimated from phone inactivity';
+                    badge.style.display = 'inline-block';
+                } else if (sleep.status === 'partial') {
+                    badge.textContent = 'Wake-time adherence only';
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.textContent = 'Awaiting inactivity data';
+                    badge.style.display = 'inline-block';
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching habit score data:', e);
+    }
+}
 
 async function fetchBehavioralAnalyticsData() {
     try {
@@ -2162,6 +2372,761 @@ function renderAnalyticsHistoryTable(logs) {
     });
 }
 
+// ==========================================================================
+// REQUIREMENT 10: USER DASHBOARD & ANALYTICS CONTROLLER
+// ==========================================================================
+
+let wakeTrendChartInstance = null;
+let currentAlarmHistoryFilter = '7days';
+let currentWakeStatsWindow = 7;
+
+async function loadUserDashboardOverview() {
+    try {
+        const response = await fetch(`${window.API_BASE_URL}/api/dashboard/overview`, {
+            method: 'GET',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) {
+            console.warn('Dashboard overview fetch failed:', response.status);
+            return;
+        }
+        const data = await response.json();
+
+        // Update Dashboard Metric Cards
+        const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val !== null && val !== undefined ? val : '--';
+        };
+
+        setTxt('stat-total-alarms', data.total_alarms);
+        setTxt('stat-active-alarms', data.active_alarms);
+        setTxt('stat-completed-alarms', data.completed_alarms);
+        setTxt('stat-missed-alarms', data.missed_alarms);
+        setTxt('stat-snooze-count', data.snooze_count);
+        setTxt('stat-wake-streak', `${data.current_streak} Days`);
+        setTxt('stat-avg-wake-time', data.average_wake_up_time || '--:--');
+        setTxt('stat-avg-delay', data.average_wake_up_delay_minutes !== null ? `${data.average_wake_up_delay_minutes}m` : '0.0m');
+        setTxt('stat-avg-wakefulness', data.average_wakefulness_rating !== null ? `${data.average_wakefulness_rating}/5` : 'N/A');
+        setTxt('stat-verif-success-rate', data.verification_success_rate !== null ? `${data.verification_success_rate}%` : '100%');
+        setTxt('stat-habit-score', Math.round(data.habit_score));
+
+        // Update Sleep Quality Metric Card
+        const sqEl = document.getElementById('stat-sleep-quality');
+        const sqLevelEl = document.getElementById('stat-sleep-quality-level');
+        if (sqEl) {
+            if (data.sleep_quality_score !== null && data.sleep_quality_score !== undefined) {
+                sqEl.textContent = `${Math.round(data.sleep_quality_score)}%`;
+                if (sqLevelEl) {
+                    const level = data.sleep_quality_level || 'Good';
+                    sqLevelEl.textContent = level;
+                    sqLevelEl.className = `badge ${data.sleep_quality_score >= 75 ? 'badge-success' : (data.sleep_quality_score >= 50 ? 'badge-warning' : 'badge-danger')}`;
+                }
+            } else {
+                sqEl.textContent = 'N/A*';
+                if (sqLevelEl) {
+                    sqLevelEl.textContent = 'Insufficient data';
+                    sqLevelEl.className = 'badge badge-secondary';
+                }
+            }
+        }
+
+        // Update Habit Engine Badge if present
+        const levelBadge = document.getElementById('habit-score-level');
+        if (levelBadge) {
+            levelBadge.textContent = data.habit_level || 'Calculating...';
+            levelBadge.className = `badge ${data.habit_score >= 75 ? 'badge-success' : (data.habit_score >= 50 ? 'badge-warning' : 'badge-danger')}`;
+        }
+
+        // Also fetch detailed sleep quality breakdown asynchronously
+        loadSleepQualityMetric(7);
+    } catch (e) {
+        console.error('Error loading dashboard overview:', e);
+    }
+}
+
+async function loadSleepQualityMetric(days = 7) {
+    const sqEl = document.getElementById('stat-sleep-quality');
+    const sqLevelEl = document.getElementById('stat-sleep-quality-level');
+
+    try {
+        const response = await fetch(`${window.API_BASE_URL}/api/dashboard/sleep-quality?days=${days}`, {
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) {
+            if (sqEl) sqEl.textContent = 'N/A*';
+            if (sqLevelEl) {
+                sqLevelEl.textContent = 'Insufficient data';
+                sqLevelEl.className = 'badge badge-secondary';
+            }
+            return;
+        }
+
+        const data = await response.json();
+        if (data.status === 'available' && data.score !== null && data.score !== undefined) {
+            const scoreVal = Math.round(data.score);
+            const levelVal = data.level || 'Good';
+            if (sqEl) sqEl.textContent = `${scoreVal}%`;
+            if (sqLevelEl) {
+                sqLevelEl.textContent = levelVal;
+                sqLevelEl.className = `badge ${scoreVal >= 75 ? 'badge-success' : (scoreVal >= 50 ? 'badge-warning' : 'badge-danger')}`;
+            }
+
+            // Update components if elements present
+            const components = data.components || {};
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val !== null && val !== undefined ? `${Math.round(val)}%` : '--';
+            };
+            setVal('sleep-quality-adherence', components.schedule_adherence);
+            setVal('sleep-quality-duration', components.sleep_duration);
+            setVal('sleep-quality-consistency', components.consistency);
+        } else {
+            if (sqEl) sqEl.textContent = 'N/A*';
+            if (sqLevelEl) {
+                sqLevelEl.textContent = 'Insufficient data';
+                sqLevelEl.className = 'badge badge-secondary';
+            }
+        }
+    } catch (e) {
+        console.warn('Error loading sleep quality:', e);
+        if (sqEl && (!sqEl.textContent || sqEl.textContent === '--')) {
+            sqEl.textContent = 'N/A*';
+            if (sqLevelEl) {
+                sqLevelEl.textContent = 'Insufficient data';
+                sqLevelEl.className = 'badge badge-secondary';
+            }
+        }
+    }
+}
+
+async function filterAlarmHistory(filterType) {
+    currentAlarmHistoryFilter = filterType;
+
+    // Update active button state
+    ['today', '7d', '30d'].forEach(f => {
+        const btn = document.getElementById(`history-filter-${f}`);
+        if (btn) {
+            if ((f === 'today' && filterType === 'today') ||
+                (f === '7d' && filterType === '7days') ||
+                (f === '30d' && filterType === '30days')) {
+                btn.className = 'btn btn-primary';
+            } else {
+                btn.className = 'btn btn-secondary';
+            }
+        }
+    });
+
+    await loadAlarmHistory(filterType);
+}
+
+async function applyCustomHistoryFilter() {
+    const startDate = document.getElementById('history-start-date')?.value;
+    const endDate = document.getElementById('history-end-date')?.value;
+    if (!startDate) {
+        if (typeof Toast !== 'undefined') Toast.show('Filter Range', 'Please choose a start date.', 'warning', 2500);
+        return;
+    }
+    await loadAlarmHistory('custom', startDate, endDate);
+}
+
+async function loadAlarmHistory(filterType = '7days', startDate = '', endDate = '') {
+    const tbody = document.getElementById('db-alarm-history-tbody');
+    if (!tbody) return;
+
+    try {
+        let url = `${window.API_BASE_URL}/api/dashboard/alarm-history?filter_type=${encodeURIComponent(filterType)}`;
+        if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 20px;">Could not load alarm history.</td></tr>';
+            return;
+        }
+
+        const data = await res.json();
+        const records = data.history || [];
+
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 24px;">No alarm history records for this period.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = records.map(r => {
+            const statusBadge = r.status === 'Completed'
+                ? '<span class="badge badge-success">Completed</span>'
+                : (r.status === 'Missed' ? '<span class="badge badge-danger">Missed</span>' : '<span class="badge badge-info">' + r.status + '</span>');
+
+            const verifBadge = r.verification_result === 'Passed'
+                ? '<span class="badge badge-success"><i class="fas fa-check"></i> Passed</span>'
+                : (r.verification_result === 'Failed' ? '<span class="badge badge-danger"><i class="fas fa-times"></i> Failed</span>' : '<span class="badge badge-secondary">' + r.verification_result + '</span>');
+
+            const ratingDisplay = r.wakefulness_rating ? `<span style="color: #fbbf24;">★</span> ${r.wakefulness_rating}/5` : '<span style="color: var(--text-muted);">-</span>';
+
+            return `
+                <tr>
+                    <td><strong>${r.alarm_label}</strong></td>
+                    <td><code>${r.scheduled_time || '--:--'}</code></td>
+                    <td>${r.trigger_time || '--:--'}</td>
+                    <td><strong style="color: var(--primary);">${r.actual_wake_time || '--:--'}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td>${r.snooze_count > 0 ? `<span class="badge badge-warning">${r.snooze_count}</span>` : '0'}</td>
+                    <td>${verifBadge}</td>
+                    <td>${ratingDisplay}</td>
+                    <td><span style="font-size: 0.8rem; color: var(--text-secondary);">${r.challenge_result || '-'}</span></td>
+                    <td><span style="font-size: 0.8rem; color: var(--text-muted);">${r.date}</span></td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('Error loading alarm history:', e);
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #ef4444; padding: 20px;">Failed to connect to history service.</td></tr>';
+    }
+}
+
+async function setWakeStatsWindow(days) {
+    currentWakeStatsWindow = days;
+    const btn7 = document.getElementById('wake-stat-7d');
+    const btn30 = document.getElementById('wake-stat-30d');
+    if (btn7) btn7.className = days === 7 ? 'btn btn-primary' : 'btn btn-secondary';
+    if (btn30) btn30.className = days === 30 ? 'btn btn-primary' : 'btn btn-secondary';
+    await loadWakeUpStatistics(days);
+}
+
+async function loadWakeUpStatistics(days = 7) {
+    const canvas = document.getElementById('wakeUpTrendChart');
+    if (!canvas) return;
+
+    try {
+        const res = await fetch(`${window.API_BASE_URL}/api/dashboard/wake-up-statistics?days=${days}`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const points = data.trend_points || [];
+
+        const labels = points.map(p => p.date);
+        const schedData = points.map(p => p.scheduled_minutes !== null ? (p.scheduled_minutes / 60.0) : null);
+        const actualData = points.map(p => p.actual_minutes !== null ? (p.actual_minutes / 60.0) : null);
+
+        if (labels.length === 0) {
+            labels.push('Today');
+            schedData.push(7.0);
+            actualData.push(7.0);
+        }
+
+        if (wakeTrendChartInstance) {
+            wakeTrendChartInstance.destroy();
+        }
+
+        wakeTrendChartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Scheduled Wake (Hour)',
+                        data: schedData,
+                        borderColor: '#818cf8',
+                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#818cf8'
+                    },
+                    {
+                        label: 'Actual Wake (Hour)',
+                        data: actualData,
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#22c55e'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#e2e8f0', font: { family: 'Inter', size: 12 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const val = ctx.raw;
+                                if (val === null || val === undefined) return 'No data';
+                                const totalMins = Math.round(val * 60);
+                                const h = Math.floor(totalMins / 60);
+                                const m = totalMins % 60;
+                                return `${ctx.dataset.label}: ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#94a3b8',
+                            callback: function(val) {
+                                const h = Math.floor(val);
+                                const m = Math.round((val - h) * 60);
+                                return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                            }
+                        },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error loading wake-up statistics:', e);
+    }
+}
+
+async function loadCategorizedRecommendations() {
+    const container = document.getElementById('db-recommendations-list');
+    if (!container) return;
+
+    try {
+        const res = await fetch(`${window.API_BASE_URL}/api/dashboard/recommendations`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">Recommendations service offline.</div>';
+            return;
+        }
+
+        const data = await res.json();
+        const recs = data.recommendations || [];
+
+        if (recs.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 14px;">Complete your morning wake-up alarms to receive personalized recommendations.</div>';
+            return;
+        }
+
+        const catColors = {
+            'Sleep Improvement': { bg: 'rgba(99, 102, 241, 0.15)', text: '#818cf8', icon: 'fa-bed' },
+            'Wake-Up Optimization': { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8', icon: 'fa-sun' },
+            'Habit Improvement': { bg: 'rgba(168, 85, 247, 0.15)', text: '#c084fc', icon: 'fa-brain' },
+            'Productivity': { bg: 'rgba(34, 197, 94, 0.15)', text: '#4ade80', icon: 'fa-chart-line' },
+            'Personalized Challenge': { bg: 'rgba(245, 158, 11, 0.15)', text: '#fbbf24', icon: 'fa-puzzle-piece' }
+        };
+
+        container.innerHTML = recs.map(r => {
+            const theme = catColors[r.category] || { bg: 'rgba(255,255,255,0.1)', text: '#e2e8f0', icon: 'fa-lightbulb' };
+            const priorityBadge = r.priority === 'High'
+                ? '<span class="badge badge-danger">High Priority</span>'
+                : (r.priority === 'Medium' ? '<span class="badge badge-warning">Medium</span>' : '<span class="badge badge-info">Low</span>');
+
+            return `
+                <div class="glass-card" style="padding: 14px; background: rgba(15, 23, 42, 0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span class="badge" style="background: ${theme.bg}; color: ${theme.text}; font-size: 0.72rem; border-radius: 6px; padding: 3px 8px;">
+                                <i class="fas ${theme.icon}" style="margin-right: 4px;"></i> ${r.category}
+                            </span>
+                            ${priorityBadge}
+                        </div>
+                        <h4 style="margin: 0 0 4px; font-size: 0.95rem; color: #fff;">${r.title}</h4>
+                        <p style="margin: 0; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">${r.message}</p>
+                    </div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; margin-top: 4px;">
+                        <i class="fas fa-info-circle"></i> Reason: ${r.reason}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (recs.length > 0) {
+            const tipEl = document.getElementById('dashboard-adaptive-tip');
+            if (tipEl) {
+                tipEl.textContent = `${recs[0].title}: ${recs[0].message}`;
+            }
+        }
+    } catch (e) {
+        console.error('Error loading recommendations:', e);
+    }
+}
+
+async function loadChallengePerformanceMetrics() {
+    try {
+        const res = await fetch(`${window.API_BASE_URL}/api/dashboard/challenge-performance`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        // Update Overview Cards if on Analytics page
+        const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val !== null && val !== undefined ? val : '0';
+        };
+
+        setTxt('analytics-accuracy', `${data.overall_accuracy}%`);
+        setTxt('analytics-passed', data.completed_challenges);
+        setTxt('analytics-failed', data.incorrect_answers);
+        setTxt('analytics-avg-time', `${data.average_completion_time}s`);
+
+        setTxt('db-analytics-accuracy', `${data.overall_accuracy}%`);
+        setTxt('db-analytics-passed', data.completed_challenges);
+        setTxt('db-analytics-failed', data.incorrect_answers);
+        setTxt('db-analytics-avg-time', `${data.average_completion_time}s`);
+
+        // Render By Type breakdown
+        const renderByType = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const types = data.performance_by_type || [];
+            if (types.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">No attempts recorded yet.</div>';
+                return;
+            }
+
+            container.innerHTML = types.map(t => `
+                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.85rem;">
+                        <span style="color: #fff; font-weight: 600;">${t.challenge_type}</span>
+                        <span style="color: var(--primary); font-weight: 700;">${t.accuracy_percentage}% <span style="font-size: 0.75rem; color: var(--text-muted);">(${t.passed}/${t.total_attempts})</span></span>
+                    </div>
+                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                        <div class="progress-bar-fill" style="width: ${t.accuracy_percentage}%; background: var(--primary);"></div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        renderByType('analytics-by-type-container');
+        renderByType('db-analytics-by-type-container');
+
+        // Render By Difficulty breakdown
+        const renderByDiff = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const diffs = data.performance_by_difficulty || [];
+            if (diffs.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">No attempts recorded yet.</div>';
+                return;
+            }
+
+            container.innerHTML = diffs.map(d => `
+                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.85rem;">
+                        <span style="color: #fff; font-weight: 600;">${d.difficulty}</span>
+                        <span style="color: #22c55e; font-weight: 700;">${d.accuracy_percentage}% <span style="font-size: 0.75rem; color: var(--text-muted);">(${d.passed}/${d.total_attempts})</span></span>
+                    </div>
+                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                        <div class="progress-bar-fill" style="width: ${d.accuracy_percentage}%; background: #22c55e;"></div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        renderByDiff('analytics-by-diff-container');
+        renderByDiff('db-analytics-by-diff-container');
+
+        // Update Daily Accuracy Chart
+        if (data.daily_trend && data.daily_trend.length > 0) {
+            renderAnalyticsChart(data.daily_trend);
+        }
+    } catch (e) {
+        console.error('Error loading challenge performance metrics:', e);
+    }
+}
+
+async function loadProductivityInsightsData() {
+    try {
+        const res = await fetch(`${window.API_BASE_URL}/api/dashboard/productivity-insights`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const insights = data.insights || [];
+
+        const renderList = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (insights.length === 0) {
+                el.innerHTML = '<li>Insufficient data to calculate productivity correlations yet.</li>';
+            } else {
+                el.innerHTML = insights.map(ins => `<li>${ins}</li>`).join('');
+            }
+        };
+
+        renderList('behavior-insights-list');
+        renderList('db-behavior-insights-list');
+    } catch (e) {
+        console.error('Error loading productivity insights:', e);
+    }
+}
+
+// Master loader triggered on page mount, tab change, or alarm verification completion
+async function refreshAllDashboardAnalytics() {
+    await Promise.allSettled([
+        loadUserDashboardOverview(),
+        loadAlarmHistory('7days'),
+        loadWakeUpStatistics(7),
+        loadCategorizedRecommendations(),
+        loadChallengePerformanceMetrics(),
+        loadProductivityInsightsData(),
+        loadHabitScoreData(7)
+    ]);
+}
+
+// Attach live refresh to DOM ready and tab switches
+window.addEventListener('DOMContentLoaded', () => {
+    refreshAllDashboardAnalytics();
+});
+
+// Guard and export refresh hook for verification service
+window.refreshAllDashboardAnalytics = refreshAllDashboardAnalytics;
+window.filterAlarmHistory = filterAlarmHistory;
+window.applyCustomHistoryFilter = applyCustomHistoryFilter;
+window.setWakeStatsWindow = setWakeStatsWindow;
+window.loadCategorizedRecommendations = loadCategorizedRecommendations;
+
+// Multi-Format Personal Sleep & Habit Document Export (PDF, Excel, CSV)
+window.exportUserReport = async (format = 'pdf') => {
+    const fmt = (format || 'pdf').toLowerCase();
+    Toast.show('Compiling Personal Report...', `Generating ${fmt.toUpperCase()} export from PostgreSQL records.`, 'info', 2000);
+
+    const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+    let alarms = [];
+    let wakeStats = null;
+    let habitData = null;
+
+    try {
+        const [aRes, wRes, hRes] = await Promise.allSettled([
+            fetch(`${window.API_BASE_URL}/api/alarms`, { headers: getAuthHeaders() }),
+            fetch(`${window.API_BASE_URL}/api/dashboard/wake-statistics?days=30`, { headers: getAuthHeaders() }),
+            fetch(`${window.API_BASE_URL}/api/dashboard/habit-score?days=30`, { headers: getAuthHeaders() })
+        ]);
+
+        if (aRes.status === 'fulfilled' && aRes.value.ok) {
+            const json = await aRes.value.json();
+            alarms = Array.isArray(json) ? json : (json.alarms || []);
+        }
+        if (wRes.status === 'fulfilled' && wRes.value.ok) wakeStats = await wRes.value.json();
+        if (hRes.status === 'fulfilled' && hRes.value.ok) habitData = await hRes.value.json();
+    } catch (_) {}
+
+    const dateStr = new Date().toLocaleDateString();
+    const timeStr = new Date().toLocaleTimeString();
+
+    if (fmt === 'csv') {
+        let csv = '\uFEFF';
+        csv += 'WAKEWISE AI - PERSONAL SLEEP & HABIT PERFORMANCE REPORT\r\n';
+        csv += `Export Date,${dateStr} ${timeStr}\r\n`;
+        csv += `User Name,"${(session.name || 'User').replace(/"/g, '""')}"\r\n`;
+        csv += `Email,"${(session.email || '').replace(/"/g, '""')}"\r\n`;
+        csv += `Habit Score,${habitData ? (habitData.overall_habit_score || habitData.habit_score || 0) : 0}%\r\n`;
+        csv += `Total Active Alarms,${alarms.filter(a => a.is_active).length}\r\n\r\n`;
+
+        csv += '--- CONFIGURED ALARMS ---\r\n';
+        csv += 'Alarm Title,Time,Repeat Days,Type,Status,Verification Method,Tone\r\n';
+        alarms.forEach(a => {
+            csv += `"${(a.title || 'Alarm').replace(/"/g, '""')}","${a.alarm_time}","${a.repeat_days || ''}","${a.alarm_type || 'standard'}","${a.is_active ? 'Active' : 'Disabled'}","${a.verification_method || 'multi_step'}","${a.alarm_tone || 'Standard'}"\r\n`;
+        });
+        csv += '\r\n';
+
+        csv += '--- WAKE-UP PERFORMANCE SUMMARY ---\r\n';
+        csv += 'Metric,Value\r\n';
+        csv += `Total Scheduled Alarms,${wakeStats ? (wakeStats.total_alarms || 0) : alarms.length}\r\n`;
+        csv += `On-Time Wake Ratio,${wakeStats ? (wakeStats.on_time_ratio_pct || 0) : 0}%\r\n`;
+        csv += `Average Snooze Count,${wakeStats ? (wakeStats.average_snoozes || 0) : 0}\r\n`;
+        csv += `Challenges Completed,${wakeStats ? (wakeStats.challenges_completed || 0) : 0}\r\n`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `WakeWise_User_Report_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        Toast.show('CSV Downloaded', 'Personal sleep ledger CSV saved successfully.', 'success', 2500);
+
+    } else if (fmt === 'excel' || fmt === 'xlsx' || fmt === 'xls') {
+        let excel = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#107C41" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="Title"><Font ss:Bold="1" ss:Size="14" ss:Color="#107C41"/></Style>
+  <Style ss:ID="Subheader"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#16A34A" ss:Pattern="Solid"/></Style>
+ </Styles>
+ <Worksheet ss:Name="Sleep Performance">
+  <Table>
+   <Row><Cell ss:StyleID="Title"><Data ss:Type="String">WakeWise AI - Personal Sleep & Habit Performance</Data></Cell></Row>
+   <Row><Cell><Data ss:Type="String">User: ${escapeXmlReport(session.name || 'User')} (${escapeXmlReport(session.email || '')})</Data></Cell></Row>
+   <Row><Cell><Data ss:Type="String">Generated: ${dateStr} ${timeStr}</Data></Cell></Row>
+   <Row><Cell><Data ss:Type="String">Overall Habit Score: ${habitData ? (habitData.overall_habit_score || habitData.habit_score || 0) : 0}%</Data></Cell></Row>
+   <Row></Row>
+   <Row ss:StyleID="Subheader"><Cell><Data ss:Type="String">Configured Alarms</Data></Cell></Row>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Alarm Title</Data></Cell>
+    <Cell><Data ss:Type="String">Time</Data></Cell>
+    <Cell><Data ss:Type="String">Repeat Days</Data></Cell>
+    <Cell><Data ss:Type="String">Type</Data></Cell>
+    <Cell><Data ss:Type="String">Verification Method</Data></Cell>
+    <Cell><Data ss:Type="String">Status</Data></Cell>
+   </Row>`;
+
+        alarms.forEach(a => {
+            excel += `
+   <Row>
+    <Cell><Data ss:Type="String">${escapeXmlReport(a.title || 'Alarm')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXmlReport(a.alarm_time || '')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXmlReport(a.repeat_days || 'Daily')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXmlReport(a.alarm_type || 'standard')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXmlReport(a.verification_method || 'multi_step')}</Data></Cell>
+    <Cell><Data ss:Type="String">${a.is_active ? 'Active' : 'Disabled'}</Data></Cell>
+   </Row>`;
+        });
+
+        excel += `
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+        const blob = new Blob([excel], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `WakeWise_User_Report_${Date.now()}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        Toast.show('Excel Downloaded', 'Spreadsheet report saved successfully.', 'success', 2500);
+
+    } else {
+        // PDF format
+        const printWindow = window.open('', '_blank', 'width=860,height=700');
+        if (!printWindow) {
+            Toast.show('Popup Blocked', 'Please allow popups to generate PDF report.', 'warning', 3000);
+            return;
+        }
+
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>WakeWise AI - Personal Sleep & Habit Performance</title>
+    <style>
+        @page { size: A4; margin: 16mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; margin: 0; padding: 20px; font-size: 12px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-bottom: 20px; }
+        .logo { font-size: 20px; font-weight: 700; color: #6366f1; }
+        .meta { text-align: right; font-size: 11px; color: #64748b; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+        .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
+        .stat-box h4 { margin: 0; font-size: 18px; color: #1e1b4b; }
+        .stat-box p { margin: 4px 0 0; font-size: 11px; color: #64748b; }
+        h3 { font-size: 14px; margin: 20px 0 8px; color: #334155; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+        th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+        th { background: #f1f5f9; font-weight: 600; color: #475569; }
+        tr:nth-child(even) { background: #fafafa; }
+        .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+        @media print { body { padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="logo">🧠 WakeWise AI - Personal Summary</div>
+            <div style="font-size: 12px; color: #475569; margin-top: 4px;">Sleep, Wake, and Cognitive Habit Report</div>
+        </div>
+        <div class="meta">
+            <div><strong>User:</strong> ${escapeXmlReport(session.name || 'User')} (${escapeXmlReport(session.email || '')})</div>
+            <div><strong>Date:</strong> ${dateStr} ${timeStr}</div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h4>${habitData ? (habitData.overall_habit_score || habitData.habit_score || 0) : 0}%</h4>
+            <p>Overall Habit Score</p>
+        </div>
+        <div class="stat-box">
+            <h4>${alarms.length}</h4>
+            <p>Configured Alarms</p>
+        </div>
+        <div class="stat-box">
+            <h4>${wakeStats ? (wakeStats.on_time_ratio_pct || 100) : 100}%</h4>
+            <p>On-Time Wake Ratio</p>
+        </div>
+    </div>
+
+    <h3>Configured Wake-Up Alarms (${alarms.length})</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Alarm Title</th>
+                <th>Time</th>
+                <th>Repeat</th>
+                <th>Type</th>
+                <th>Verification</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${alarms.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No alarms configured.</td></tr>' : alarms.map(a => `
+                <tr>
+                    <td><strong>${escapeXmlReport(a.title || 'Alarm')}</strong></td>
+                    <td>${a.alarm_time}</td>
+                    <td>${escapeXmlReport(a.repeat_days || 'Daily')}</td>
+                    <td>${escapeXmlReport(a.alarm_type || 'standard')}</td>
+                    <td>${escapeXmlReport(a.verification_method || 'multi_step')}</td>
+                    <td>${a.is_active ? 'Active' : 'Disabled'}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        WakeWise AI Personal Sleep Report • Generated from live PostgreSQL Database
+    </div>
+
+    <script>
+        window.onload = function() {
+            setTimeout(function() { window.print(); }, 300);
+        };
+    </script>
+</body>
+</html>`;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        Toast.show('PDF Ready', 'Print dialog opened. Select "Save as PDF".', 'success', 2500);
+    }
+};
+
+window.simulateUserExport = (fmt) => window.exportUserReport(fmt || 'pdf');
+
+function escapeXmlReport(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
 // Anti-bypass window guard: prevent closing/reloading while verification is active
 window.addEventListener('beforeunload', (e) => {
     if (window.currentRingingAlarm && window.isWakeUpVerified !== true) {
@@ -2169,4 +3134,4 @@ window.addEventListener('beforeunload', (e) => {
         e.returnValue = 'Wake-Up Verification in progress! Complete the challenge to silence the alarm.';
         return e.returnValue;
     }
-});
+});

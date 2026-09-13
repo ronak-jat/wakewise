@@ -78,6 +78,24 @@
                     <button class="nav-toggle-theme" title="Toggle Theme" aria-label="Toggle Theme">
                         <i class="fas fa-sun"></i>
                     </button>
+                    <!-- Notification Bell Dropdown Wrapper -->
+                    <div class="notif-wrapper">
+                        <button class="notif-bell-btn" id="notif-trigger" title="Notifications" aria-label="Notifications">
+                            <i class="fas fa-bell"></i>
+                            <span class="notif-badge" id="notif-badge" style="display: none;">0</span>
+                        </button>
+                        <div class="notif-dropdown" id="notif-dropdown">
+                            <div class="notif-dropdown-header">
+                                <h4>Notifications</h4>
+                                <div class="notif-dropdown-actions">
+                                    <button id="notif-mark-all-read-btn" class="btn-text-action" title="Mark all as read"><i class="fas fa-check-double"></i></button>
+                                </div>
+                            </div>
+                            <div class="notif-dropdown-list" id="notif-dropdown-list">
+                                <div class="notif-loading"><div class="spinner-small"></div> Syncing notifications...</div>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Profile dropdown -->
                     <div class="profile-dropdown-wrapper">
                         <div class="profile-trigger" id="profile-trigger">
@@ -129,7 +147,7 @@
                         <div class="glass-card secondary-hover stat-card">
                             <div class="stat-icon secondary"><i class="fas fa-bed"></i></div>
                             <div class="stat-details">
-                                <h3>7.4 Hrs</h3>
+                                <h3 id="stat-coach-sleep-quality">--</h3>
                                 <p>Sleep Quality</p>
                             </div>
                         </div>
@@ -164,43 +182,35 @@
                             <button class="btn btn-primary" onclick="Modal.open('recommendation-modal')" style="width: 100%; margin-bottom: 12px;">
                                 <i class="fas fa-comment-medical"></i> Send Recommendation
                             </button>
-                            <button class="btn btn-secondary" onclick="simulateCoachReport()" style="width: 100%;">
-                                <i class="fas fa-file-excel"></i> Export Analytics Sheet
-                            </button>
+                            <div style="display: flex; gap: 6px; margin-top: 4px;">
+                                <button class="btn btn-danger" onclick="exportCoachReport('pdf')" style="flex: 1; padding: 7px 4px; font-size: 0.78rem;" title="Download PDF">
+                                    <i class="fas fa-file-pdf"></i> PDF
+                                </button>
+                                <button class="btn btn-success" onclick="exportCoachReport('excel')" style="flex: 1; padding: 7px 4px; font-size: 0.78rem;" title="Download Excel">
+                                    <i class="fas fa-file-excel"></i> Excel
+                                </button>
+                                <button class="btn btn-primary" onclick="exportCoachReport('csv')" style="flex: 1; padding: 7px 4px; font-size: 0.78rem;" title="Download CSV">
+                                    <i class="fas fa-file-csv"></i> CSV
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Top Performing Users Table -->
                         <div class="glass-card success-hover">
                             <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Optimal Performing Patients</h3>
                             <div class="table-responsive">
-                                <table class="custom-table">
+                                <table class="custom-table" id="optimal-table">
                                     <thead>
                                         <tr>
                                             <th>Patient Name</th>
                                             <th>Habit Score</th>
                                             <th>Sleep Consistency</th>
                                             <th>Status</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><strong>Alex Mercer</strong></td>
-                                            <td><span class="badge badge-success">88%</span></td>
-                                            <td>94% optimal</td>
-                                            <td><span class="badge badge-success">Consistent</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Clara Oswald</strong></td>
-                                            <td><span class="badge badge-success">95%</span></td>
-                                            <td>91% optimal</td>
-                                            <td><span class="badge badge-success">Optimal</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Bruce Banner</strong></td>
-                                            <td><span class="badge badge-success">84%</span></td>
-                                            <td>87% optimal</td>
-                                            <td><span class="badge badge-success">Consistent</span></td>
-                                        </tr>
+                                    <tbody id="optimal-table-body">
+                                        <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">Loading active patient scores...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -210,17 +220,17 @@
                         <div class="glass-card danger-hover">
                             <h3 style="margin-bottom: 20px; font-size: 1.15rem; color: var(--color-danger);"><i class="fas fa-exclamation-triangle"></i> Patients Requiring Review</h3>
                             <div class="table-responsive">
-                                <table class="custom-table" id="help-table-body">
+                                <table class="custom-table" id="help-table">
                                     <thead>
                                         <tr>
                                             <th>Patient</th>
-                                            <th>Habit Drop</th>
-                                            <th>Sleep Avg</th>
+                                            <th>Habit Score</th>
+                                            <th>Sleep / Schedule</th>
                                             <th>Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <!-- Will populate dynamically -->
+                                    <tbody id="help-table-body">
+                                        <!-- Populated dynamically with patients with bad/low sleep/habit scores -->
                                     </tbody>
                                 </table>
                             </div>
@@ -243,6 +253,7 @@
                                         <th>Wake Inertia</th>
                                         <th>Status</th>
                                         <th>Recommendation</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -258,7 +269,11 @@
                     <div class="glass-card secondary-hover" style="margin-bottom: 30px;">
                         <div class="chart-header">
                             <h3>Aggregated Sleep Efficiency Trends</h3>
+                            <span class="badge badge-info" style="font-size: 0.75rem;"><i class="fas fa-info-circle"></i> Estimated from phone inactivity</span>
                         </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">
+                            *Note: Estimated sleep duration is derived from device screen/phone inactivity window and does not assert clinical causation.
+                        </p>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="coachTrendsChart"></canvas>
                         </div>
@@ -267,12 +282,383 @@
 
                 <!-- ================= TAB: HABIT ANALYTICS ================= -->
                 <div id="tab-analytics" class="tab-content-section">
-                    <div class="glass-card accent-hover" style="margin-bottom: 30px;">
-                        <div class="chart-header">
-                            <h3>Habit Challenge Success Rates</h3>
+                    <!-- Top Control Header: Patient Filter & Period Controls -->
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px; border: 1px solid rgba(168, 85, 247, 0.35); background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(59, 130, 246, 0.05));">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #a855f7, #3b82f6); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; box-shadow: 0 4px 12px rgba(168,85,247,0.35);">
+                                        <i class="fas fa-heartbeat"></i>
+                                    </div>
+                                    <div>
+                                        <h2 style="margin: 0; font-size: 1.4rem; color: #fff;">User Habit Analytics &amp; Discipline</h2>
+                                        <p style="margin: 2px 0 0; color: var(--text-secondary); font-size: 0.85rem;">
+                                            How consistently is this user following their wake-up and sleep habits?
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Patient Selector & Time Window Toggles -->
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div style="min-width: 230px;">
+                                    <select id="habit-patient-select" class="form-control form-select" onchange="onHabitPatientChange(this.value)" style="padding: 7px 12px; font-size: 0.85rem; background: rgba(15,23,42,0.9); border: 1px solid rgba(168,85,247,0.4); color: #fff; border-radius: 8px;">
+                                        <option value="0">All Patients (Aggregate)</option>
+                                    </select>
+                                </div>
+                                <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.35); padding: 4px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                                    <button id="habit-btn-7d" class="btn btn-primary" onclick="setCoachHabitPeriod(7)" style="padding: 5px 12px; font-size: 0.8rem;">7 Days</button>
+                                    <button id="habit-btn-30d" class="btn btn-secondary" onclick="setCoachHabitPeriod(30)" style="padding: 5px 12px; font-size: 0.8rem;">30 Days</button>
+                                    <button id="habit-btn-90d" class="btn btn-secondary" onclick="setCoachHabitPeriod(90)" style="padding: 5px 12px; font-size: 0.8rem;">90 Days</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="chart-container" style="height: 350px;">
-                            <canvas id="coachHabitsChart"></canvas>
+
+                        <!-- User Profile Context Banner -->
+                        <div id="habit-patient-profile-strip" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div id="habit-patient-avatar" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #3b82f6); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.85rem; box-shadow: 0 2px 8px rgba(168,85,247,0.3);">
+                                    USR
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <strong id="habit-patient-name" style="color: #fff; font-size: 0.95rem;">Select Patient</strong>
+                                        <span id="habit-patient-badge" class="badge badge-info" style="font-size: 0.72rem;">User-Wise Mode</span>
+                                    </div>
+                                    <span id="habit-patient-email" style="color: var(--text-secondary); font-size: 0.8rem;">Individual behavioral telemetry</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.82rem;">
+                                <span style="background: rgba(255,255,255,0.04); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);"><i class="fas fa-bed" style="color: #a855f7; margin-right: 5px;"></i> Bed: <strong id="habit-patient-bed" style="color: #fff;">--:--</strong></span>
+                                <span style="background: rgba(255,255,255,0.04); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);"><i class="fas fa-sun" style="color: #f59e0b; margin-right: 5px;"></i> Wake: <strong id="habit-patient-wake" style="color: #fff;">--:--</strong></span>
+                                <span style="background: rgba(255,255,255,0.04); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);"><i class="fas fa-shield-alt" style="color: #38bdf8; margin-right: 5px;"></i> Inactivity: <strong id="habit-patient-inactivity" style="color: #fff;">15m</strong></span>
+                                <button id="habit-patient-intervene-btn" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.78rem;" onclick="openRecommendationForCurrentPatient()">
+                                    <i class="fas fa-comment-medical" style="margin-right: 4px;"></i> Intervene
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 1: Habit Score Card & Current Habit Streak Card -->
+                    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; margin-bottom: 24px;" class="dashboard-grid">
+                        <!-- Habit Score Card -->
+                        <div class="glass-card primary-hover" style="border: 1px solid rgba(147, 51, 234, 0.3); background: rgba(15, 23, 42, 0.45);">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                                <div>
+                                    <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Overall Morning Discipline</span>
+                                    <h3 style="margin: 2px 0 0; font-size: 1.25rem;"><i class="fas fa-award grad-text" style="margin-right: 6px;"></i> Habit Score</h3>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.8rem; font-weight: 800; color: #a855f7; line-height: 1;">
+                                        <span id="coach-habit-score-val">--</span><span style="font-size: 1rem; color: var(--text-secondary);"> / 100</span>
+                                    </div>
+                                    <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center; margin-top: 4px;">
+                                        <span id="coach-habit-level-badge" class="badge badge-success" style="font-size: 0.75rem;">Calculating...</span>
+                                        <span id="coach-habit-delta-pill" class="badge badge-info" style="font-size: 0.75rem;">Stable</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 4 Component Breakdown -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.82rem;">
+                                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: var(--text-secondary);"><i class="fas fa-clock" style="color: #38bdf8; margin-right: 4px;"></i> Wake Consistency</span>
+                                        <strong id="coach-score-wake" style="color: #fff;">--%</strong>
+                                    </div>
+                                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                        <div id="coach-bar-wake" class="progress-bar-fill" style="width:0%; background: #38bdf8;"></div>
+                                    </div>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 3px;">Weight: 35%</span>
+                                </div>
+
+                                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: var(--text-secondary);"><i class="fas fa-puzzle-piece" style="color: #a855f7; margin-right: 4px;"></i> Challenge Mastery</span>
+                                        <strong id="coach-score-challenge" style="color: #fff;">--%</strong>
+                                    </div>
+                                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                        <div id="coach-bar-challenge" class="progress-bar-fill" style="width:0%; background: #a855f7;"></div>
+                                    </div>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 3px;">Weight: 25%</span>
+                                </div>
+
+                                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: var(--text-secondary);"><i class="fas fa-bell-slash" style="color: #22c55e; margin-right: 4px;"></i> Snooze Reduction</span>
+                                        <strong id="coach-score-snooze" style="color: #fff;">--%</strong>
+                                    </div>
+                                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                        <div id="coach-bar-snooze" class="progress-bar-fill" style="width:0%; background: #22c55e;"></div>
+                                    </div>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 3px;">Weight: 20%</span>
+                                </div>
+
+                                <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: var(--text-secondary);"><i class="fas fa-moon" style="color: #f59e0b; margin-right: 4px;"></i> Schedule Adherence</span>
+                                        <strong id="coach-score-sleep" style="color: #fff;">--%</strong>
+                                    </div>
+                                    <div class="progress-bar-container" style="height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px;">
+                                        <div id="coach-bar-sleep" class="progress-bar-fill" style="width:0%; background: #f59e0b;"></div>
+                                    </div>
+                                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block; margin-top: 3px;">Weight: 20%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Habit Streak Card -->
+                        <div class="glass-card success-hover" style="border: 1px solid rgba(34, 197, 94, 0.3); background: rgba(15, 23, 42, 0.45); display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                    <div>
+                                        <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600;">Consecutive Discipline</span>
+                                        <h3 style="margin: 2px 0 0; font-size: 1.25rem;"><i class="fas fa-fire" style="color: #f59e0b; margin-right: 6px;"></i> Current Habit Streak</h3>
+                                    </div>
+                                    <span class="badge badge-success" style="font-size: 0.75rem;">Successful Wake-Ups</span>
+                                </div>
+                                <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;">
+                                    <span style="font-size: 2.2rem; font-weight: 800; color: #22c55e; line-height: 1;" id="coach-streak-current">0</span>
+                                    <span style="font-size: 1rem; color: var(--text-secondary); font-weight: 600;">Days Active</span>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; text-align: center; font-size: 0.78rem;">
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem;">Best Streak</div>
+                                    <strong style="color: #f59e0b; font-size: 0.95rem; display: block; margin-top: 2px;" id="coach-streak-best">0d</strong>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem;">Passed Days</div>
+                                    <strong style="color: #22c55e; font-size: 0.95rem; display: block; margin-top: 2px;" id="coach-streak-passed">0</strong>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem;">Missed Alarms</div>
+                                    <strong style="color: #ef4444; font-size: 0.95rem; display: block; margin-top: 2px;" id="coach-streak-missed">0</strong>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem;">Failed Verif.</div>
+                                    <strong style="color: #ec4899; font-size: 0.95rem; display: block; margin-top: 2px;" id="coach-streak-failed">0</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Habit Performance Trend Chart Card -->
+                    <div class="glass-card primary-hover" style="margin-bottom: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-chart-line grad-text" style="margin-right: 6px;"></i> Habit Performance</h3>
+                                <p style="margin: 2px 0 0; color: var(--text-secondary); font-size: 0.82rem;">Multi-dimensional historical habit trajectories derived from PostgreSQL alarm logs.</p>
+                            </div>
+                            <!-- Metric Switcher -->
+                            <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px; flex-wrap: wrap;">
+                                <button id="trend-tab-habit_score" class="btn btn-primary" onclick="setCoachTrendMetric('habit_score')" style="padding: 4px 10px; font-size: 0.75rem;">Habit Score</button>
+                                <button id="trend-tab-wake_up_consistency" class="btn btn-secondary" onclick="setCoachTrendMetric('wake_up_consistency')" style="padding: 4px 10px; font-size: 0.75rem;">Wake-Up Consistency</button>
+                                <button id="trend-tab-snooze_rate" class="btn btn-secondary" onclick="setCoachTrendMetric('snooze_rate')" style="padding: 4px 10px; font-size: 0.75rem;">Snooze Rate</button>
+                                <button id="trend-tab-challenge_success" class="btn btn-secondary" onclick="setCoachTrendMetric('challenge_success')" style="padding: 4px 10px; font-size: 0.75rem;">Challenge Success</button>
+                                <button id="trend-tab-sleep_schedule_adherence" class="btn btn-secondary" onclick="setCoachTrendMetric('sleep_schedule_adherence')" style="padding: 4px 10px; font-size: 0.75rem;">Sleep Adherence</button>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="height: 320px; position: relative;">
+                            <canvas id="coachHabitTrendChart"></canvas>
+                            <div id="coach-trend-empty" style="display: none; position: absolute; inset: 0; align-items: center; justify-content: center; background: rgba(15,23,42,0.8); border-radius: 8px; color: var(--text-muted); font-size: 0.9rem;">
+                                <i class="fas fa-info-circle" style="margin-right: 6px;"></i> Not enough historical trend data yet for this selection.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Wake-Up Consistency Card & Snooze Behavior Card -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;" class="dashboard-grid">
+                        <!-- Wake-Up Consistency Card -->
+                        <div class="glass-card primary-hover" style="border: 1px solid rgba(56, 189, 248, 0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                                <div>
+                                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Alarm Execution</span>
+                                    <h3 style="margin: 2px 0 0; font-size: 1.15rem;"><i class="fas fa-clock" style="color: #38bdf8; margin-right: 6px;"></i> Wake-Up Consistency</h3>
+                                </div>
+                                <span class="badge badge-info" style="font-size: 1.1rem; font-weight: 700; padding: 4px 10px;" id="coach-wake-score-badge">0%</span>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-bottom: 12px;">
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Average Wake-Up</div>
+                                    <div style="font-weight: 700; color: #fff; font-size: 1rem; margin-top: 2px;" id="coach-wake-avg">--:--</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Target Schedule</div>
+                                    <div style="font-weight: 700; color: #38bdf8; font-size: 1rem; margin-top: 2px;" id="coach-wake-target">--:--</div>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; font-size: 0.8rem;">
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">On-Time (&le;15m)</span>
+                                    <strong style="color: #22c55e; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-wake-ontime">0 / 0</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">Late Wake-Ups</span>
+                                    <strong style="color: #f59e0b; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-wake-late">0</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">Missed Alarms</span>
+                                    <strong style="color: #ef4444; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-wake-missed">0</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Snooze Behavior Card -->
+                        <div class="glass-card warning-hover" style="border: 1px solid rgba(245, 158, 11, 0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                                <div>
+                                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Sleep Inertia Delays</span>
+                                    <h3 style="margin: 2px 0 0; font-size: 1.15rem;"><i class="fas fa-bed" style="color: #f59e0b; margin-right: 6px;"></i> Snooze Behavior</h3>
+                                </div>
+                                <span class="badge badge-warning" style="font-size: 0.9rem; font-weight: 700;" id="coach-snooze-avg-day">0.0 / day</span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-bottom: 12px;">
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Total Snoozes This Period</div>
+                                    <div style="font-weight: 700; color: #fff; font-size: 1rem; margin-top: 2px;" id="coach-snooze-total">0</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Period Change</div>
+                                    <div style="font-weight: 700; color: #22c55e; font-size: 1rem; margin-top: 2px;" id="coach-snooze-change">--</div>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; font-size: 0.8rem;">
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">Days w/ Snooze</span>
+                                    <strong style="color: #fff; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-snooze-days">0</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">Max in 1 Morning</span>
+                                    <strong style="color: #ef4444; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-snooze-max">0</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.72rem;">Avg to Dismissal</span>
+                                    <strong style="color: #38bdf8; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-snooze-dismissal">--m</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Sleep Schedule Adherence Card & Wakefulness & Verification Card -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;" class="dashboard-grid">
+                        <!-- Sleep Schedule Adherence Card -->
+                        <div class="glass-card secondary-hover" style="border: 1px solid rgba(168, 85, 247, 0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div>
+                                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Circadian Alignment</span>
+                                    <h3 style="margin: 2px 0 0; font-size: 1.15rem;"><i class="fas fa-moon" style="color: #a855f7; margin-right: 6px;"></i> Sleep Schedule Adherence</h3>
+                                </div>
+                                <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #d8b4fe; font-size: 1.1rem; font-weight: 700; padding: 4px 10px;" id="coach-sleep-score-badge">0%</span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-bottom: 12px;">
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Estimated Bedtime</div>
+                                    <div style="font-weight: 700; color: #a855f7; font-size: 0.95rem; margin-top: 2px;" id="coach-sleep-est-bed">--:--</div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 2px;">Target: <span id="coach-sleep-tgt-bed">--:--</span></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px;">
+                                    <div style="color: var(--text-secondary); font-size: 0.72rem;">Estimated Wake Time</div>
+                                    <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem; margin-top: 2px;" id="coach-sleep-est-wake">--:--</div>
+                                    <div style="color: var(--text-muted); font-size: 0.7rem; margin-top: 2px;">Target: <span id="coach-sleep-tgt-wake">--:--</span></div>
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(129, 140, 248, 0.1); border: 1px solid rgba(129, 140, 248, 0.2); padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; color: #c7d2fe;">
+                                <i class="fas fa-info-circle" style="margin-right: 4px;"></i> *Estimated from phone inactivity (screen locks &amp; idle duration).
+                            </div>
+                        </div>
+
+                        <!-- Wakefulness & Verification Card -->
+                        <div class="glass-card success-hover" style="border: 1px solid rgba(34, 197, 94, 0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div>
+                                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Cognitive Activation</span>
+                                    <h3 style="margin: 2px 0 0; font-size: 1.15rem;"><i class="fas fa-brain" style="color: #22c55e; margin-right: 6px;"></i> Wakefulness &amp; Verification</h3>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="font-size: 1.15rem; font-weight: 700; color: #22c55e;" id="coach-wakefulness-rating">0.0</span><span style="font-size: 0.8rem; color: var(--text-secondary);"> / 5</span>
+                                    <span class="badge badge-success" style="font-size: 0.7rem; display: block; margin-top: 2px;" id="coach-wakefulness-label">Awake</span>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 8px; font-size: 0.78rem; margin-bottom: 12px;">
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.7rem;">Verification Rate</span>
+                                    <strong style="color: #22c55e; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-verif-rate">0%</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.7rem;">Failures</span>
+                                    <strong style="color: #ef4444; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-verif-fails">0</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.7rem;">Avg Duration</span>
+                                    <strong style="color: #38bdf8; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-verif-duration">0s</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted); font-size: 0.7rem;">Avg Drills Req.</span>
+                                    <strong style="color: #a855f7; display: block; font-size: 0.95rem; margin-top: 2px;" id="coach-verif-drills">1.0</strong>
+                                </div>
+                            </div>
+
+                            <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>1: Very Sleepy</span>
+                                <span>2: Sleepy</span>
+                                <span>3: Somewhat Awake</span>
+                                <span>4: Awake</span>
+                                <span>5: Fully Awake</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 5: Challenge Performance by Type (Radar) & Habit Insights -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;" class="dashboard-grid">
+                        <!-- Challenge Performance by Type Card -->
+                        <div class="glass-card accent-hover" style="border: 1px solid rgba(236, 72, 153, 0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-bullseye" style="color: #ec4899; margin-right: 6px;"></i> Challenge Performance by Type</h3>
+                                    <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-secondary);">Cognitive domain mastery across all 7 challenge modalities.</p>
+                                </div>
+                                <span class="badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; font-weight: 700; font-size: 0.85rem;" id="coach-chal-overall-acc">0% Acc</span>
+                            </div>
+
+                            <div class="chart-container" style="height: 280px;">
+                                <canvas id="coachHabitsChart"></canvas>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; font-size: 0.8rem;">
+                                <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); padding: 8px 10px; border-radius: 6px;">
+                                    <span style="color: #4ade80; font-weight: 600;">💪 Strongest Domain:</span>
+                                    <div id="coach-chal-strongest" style="color: #fff; font-weight: 700; margin-top: 2px;">--</div>
+                                </div>
+                                <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); padding: 8px 10px; border-radius: 6px;">
+                                    <span style="color: #f87171; font-weight: 600;">🎯 Growth Area:</span>
+                                    <div id="coach-chal-weakest" style="color: #fff; font-weight: 700; margin-top: 2px;">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Habit Insights Card -->
+                        <div class="glass-card primary-hover" style="border: 1px solid rgba(168, 85, 247, 0.3); display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-lightbulb" style="color: #fbbf24; margin-right: 6px;"></i> Habit Insights</h3>
+                                    <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-secondary);">Real-time behavioral correlations generated from PostgreSQL data.</p>
+                                </div>
+                                <span class="badge badge-info" style="font-size: 0.75rem;">Dynamic AI Audit</span>
+                            </div>
+
+                            <div style="background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; flex: 1; border: 1px solid var(--glass-border);">
+                                <ul id="coach-habit-insights-list" style="margin: 0; padding-left: 20px; color: var(--text-secondary); line-height: 1.85; font-size: 0.85rem;">
+                                    <li>Loading behavioral insights...</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -359,6 +745,7 @@
 
     <!-- Script Sources -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="../js/config.js?v=1.0.9"></script>
     <script src="../js/utils.js?v=1.0.6"></script>
     <script src="../js/auth.js?v=1.0.6"></script>
     <script>
@@ -366,5 +753,6 @@
         protectPage('coach');
     </script>
     <script src="../js/coach.js"></script>
+    <script src="../js/notifications.js?v=1.1.0"></script>
 </body>
 </html>

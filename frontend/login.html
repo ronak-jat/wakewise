@@ -70,14 +70,18 @@
 
             <!-- Google OAuth Section (Hidden for Administrators) -->
             <div id="google-oauth-wrapper">
-                <div style="margin: 16px 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <div
+                    style="margin: 16px 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
                     <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
-                    <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Or Continue With</span>
+                    <span
+                        style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Or
+                        Continue With</span>
                     <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
                 </div>
 
                 <!-- Official Google Identity Services Render Container -->
-                <div id="google-button-container" style="width: 100%; display: flex; justify-content: center; margin-bottom: 16px; min-height: 44px;">
+                <div id="google-button-container"
+                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 16px; min-height: 44px;">
                 </div>
             </div>
 
@@ -88,8 +92,7 @@
 
         <!-- REGISTRATION FORM CONTAINER (HIDDEN BY DEFAULT) -->
         <div id="register-container" class="glass-card secondary-hover" style="display: none;">
-            <h2 class="grad-text-secondary" style="text-align: center; margin-bottom: 20px; font-size: 1.5rem;">Register
-                Account</h2>
+            <h2 class="grad-text-secondary" style="text-align: center; margin-bottom: 20px; font-size: 1.5rem;">Register Account</h2>
             <form id="register-form" autocomplete="off">
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label for="reg-name">Full Name</label>
@@ -109,6 +112,24 @@
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account <i
                         class="fas fa-user-plus"></i></button>
             </form>
+
+            <!-- Google OAuth Section for Registration -->
+            <div id="google-oauth-register-wrapper">
+                <div
+                    style="margin: 16px 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
+                    <span
+                        style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Or
+                        Sign Up With</span>
+                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
+                </div>
+
+                <!-- Official Google Identity Services Register Button Container -->
+                <div id="google-register-button-container"
+                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 16px; min-height: 44px;">
+                </div>
+            </div>
+
             <div class="form-toggle-prompt">
                 Already registered? <a href="#" id="to-login-btn">Sign in here</a>
             </div>
@@ -169,11 +190,11 @@
                 const targetRole = result.user ? result.user.role.toLowerCase() : 'user';
                 setTimeout(() => {
                     if (targetRole === 'coach') {
-                        window.location.href = 'dashboard-coach.html';
+                        window.location.href = getRelativePath('dashboard-coach.html');
                     } else if (targetRole === 'admin') {
-                        window.location.href = 'dashboard-admin.html';
+                        window.location.href = getRelativePath('dashboard-admin.html');
                     } else {
-                        window.location.href = 'dashboard-user.html';
+                        window.location.href = getRelativePath('dashboard-user.html');
                     }
                 }, 1000);
             } else {
@@ -190,15 +211,27 @@
                     auto_select: false
                 });
 
-                const container = document.getElementById("google-button-container");
-                if (container) {
-                    google.accounts.id.renderButton(container, {
+                const loginGoogleContainer = document.getElementById("google-button-container");
+                if (loginGoogleContainer) {
+                    google.accounts.id.renderButton(loginGoogleContainer, {
                         theme: "filled_blue",
                         size: "large",
                         width: "320",
                         type: "standard",
                         shape: "pill",
                         text: "continue_with"
+                    });
+                }
+
+                const regGoogleContainer = document.getElementById("google-register-button-container");
+                if (regGoogleContainer) {
+                    google.accounts.id.renderButton(regGoogleContainer, {
+                        theme: "filled_blue",
+                        size: "large",
+                        width: "320",
+                        type: "standard",
+                        shape: "pill",
+                        text: "signup_with"
                     });
                 }
             }
@@ -262,13 +295,17 @@
                 } else if (role === 'coach') {
                     loginTitle.textContent = 'Wellness Coach Sign In';
                     emailInput.placeholder = 'e.g., coach@alarm.com';
-                    registerPromptWrapper.style.display = 'block';
+                    registerPromptWrapper.style.display = 'none'; // Coaches cannot self-register; managed by Admin
                     if (googleWrapper) googleWrapper.style.display = 'block';
+                    registerContainer.style.display = 'none';
+                    loginContainer.style.display = 'block';
                 } else if (role === 'admin') {
                     loginTitle.textContent = 'Administrator Portal Sign In';
                     emailInput.placeholder = 'e.g., admin@alarm.com';
                     registerPromptWrapper.style.display = 'none'; // Hide self-registration prompt for Admin
                     if (googleWrapper) googleWrapper.style.display = 'none'; // Hide Google OAuth for Admin
+                    registerContainer.style.display = 'none';
+                    loginContainer.style.display = 'block';
                 }
             }
 

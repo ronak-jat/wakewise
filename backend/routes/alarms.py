@@ -197,6 +197,8 @@ def record_wakefulness(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Verification session not found")
     attempt.wakefulness_rating = rating
     attempt.completed_at = completed_at
+    current_user.last_meaningful_activity_at = datetime.datetime.now()
+    current_user.estimated_sleep_end = datetime.datetime.now()
     db.commit()
     return {"status": "completed", "alarm_id": id, "user_id": current_user.id, "session_id": session_id, "rating": rating, "completed_at": completed_at}
 
@@ -231,6 +233,7 @@ def snooze_alarm(
         snooze_count=new_snooze_count,
         scheduled_for=due_at,
     ))
+    current_user.last_meaningful_activity_at = datetime.datetime.now()
     db.commit()
     scheduler.schedule_snooze(alarm, due_at, new_snooze_count)
     return {"status": "snoozed", "alarm_id": id, "snooze_count": new_snooze_count, "snooze_duration": alarm.snooze_duration, "due_at": due_at}
@@ -256,6 +259,9 @@ def dismiss_alarm(
     if challenge_id:
         remove_challenge_session(challenge_id)
     remove_verification_session(session_id)
+    current_user.last_meaningful_activity_at = datetime.datetime.now()
+    current_user.estimated_sleep_end = datetime.datetime.now()
+    db.commit()
     return {"status": "dismissed", "alarm_id": id, "user_id": current_user.id, "session_id": session_id, "completed_at": datetime.datetime.now(datetime.timezone.utc)}
 
 @router.put("/{id}", response_model=AlarmResponse)

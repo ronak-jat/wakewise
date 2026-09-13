@@ -6,6 +6,10 @@
     <title>Profile - WakeWise AI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
+    <script>
+        // Redirect to unified user dashboard profile tab
+        window.location.replace('dashboard-user.html#profile');
+    </script>
 </head>
 <body data-theme="dark">
     <div class="db-wrapper">
@@ -39,7 +43,20 @@
                         <label>Email</label>
                         <input id="profile-email" class="form-control" type="email" placeholder="you@example.com">
                     </div>
-                    <button class="btn btn-primary" type="submit">Save Profile</button>
+                    <div class="form-group">
+                        <label><i class="fas fa-moon" style="color: #a855f7; margin-right: 4px;"></i> Target Bedtime</label>
+                        <input id="profile-bedtime-target" class="form-control" type="time" value="23:00">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-sun" style="color: #f59e0b; margin-right: 4px;"></i> Target Wakeup Time</label>
+                        <input id="profile-wake-target" class="form-control" type="time" value="07:00">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-mobile-alt" style="color: #38bdf8; margin-right: 4px;"></i> Phone Inactivity Threshold (Minutes)</label>
+                        <input id="profile-inactivity-threshold" class="form-control" type="number" value="30" min="5" max="180">
+                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Continuous inactivity period used to estimate sleep start.</small>
+                    </div>
+                    <button class="btn btn-primary" type="submit" style="margin-top: 12px;">Save Profile</button>
                 </form>
             </div>
         </main>

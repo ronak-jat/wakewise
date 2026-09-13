@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notifications - WakeWise AI</title>
+    <title>Notification Center - WakeWise AI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -15,113 +15,350 @@
                     <i class="fas fa-brain"></i>
                     <span>WakeWise AI</span>
                 </div>
+                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
             <ul class="sidebar-menu">
                 <li class="sidebar-menu-item"><a href="dashboard-user.html#dashboard"><i class="fas fa-th-large"></i> <span>Dashboard</span></a></li>
                 <li class="sidebar-menu-item"><a href="dashboard-user.html#alarms"><i class="fas fa-clock"></i> <span>My Alarms</span></a></li>
                 <li class="sidebar-menu-item"><a href="dashboard-user.html#habits"><i class="fas fa-tasks"></i> <span>Habit Tracker</span></a></li>
                 <li class="sidebar-menu-item"><a href="dashboard-user.html#analytics"><i class="fas fa-chart-line"></i> <span>Analytics</span></a></li>
-                <li class="sidebar-menu-item active"><a href="dashboard-user.html#notifications"><i class="fas fa-bell"></i> <span>Notifications</span></a></li>
+                <li class="sidebar-menu-item active"><a href="notifications.html"><i class="fas fa-bell"></i> <span>Notifications</span></a></li>
                 <li class="sidebar-menu-item"><a href="dashboard-user.html#profile"><i class="fas fa-user-cog"></i> <span>Profile</span></a></li>
             </ul>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn btn-danger" style="width: 100%; padding: 10px;">
+                    <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+                </button>
+            </div>
         </aside>
 
-        <main class="db-main" style="padding:24px;">
-            <div class="card" style="margin-bottom:20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-                    <div>
-                        <h2 style="margin:0;">Notifications</h2>
-                        <p style="margin:6px 0 0; color:var(--text-secondary);">See reminders, coach messages, and alarm updates here.</p>
+        <div class="db-main">
+            <!-- Top Navigation Bar -->
+            <header class="db-navbar">
+                <div class="db-nav-left">
+                    <button id="mobile-nav-toggle" class="mobile-nav-toggle"><i class="fas fa-bars"></i></button>
+                    <div class="db-breadcrumb">
+                        <a href="dashboard-user.html">Portal</a>
+                        <span class="separator">/</span>
+                        <a href="dashboard-user.html">User</a>
+                        <span class="separator">/</span>
+                        <span class="active-crumb">Notifications</span>
                     </div>
-                    <button class="btn btn-secondary" onclick="window.clearNotifications && window.clearNotifications()"><i class="fas fa-broom"></i> Clear</button>
                 </div>
-            </div>
-
-            <div class="card">
-                <div id="full-notifications-list"></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Active Challenge Alarm Modal -->
-    <div id="challenge-modal" class="modal-overlay">
-        <div class="modal-container" style="max-width: 520px;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
-                <div class="verification-title">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Wake-Up Verification</span>
-                </div>
-                <span id="verification-status-badge" class="verification-status-badge status-in_progress">
-                    <i class="fas fa-circle-notch fa-spin"></i> In Progress
-                </span>
-            </div>
-            <div class="modal-body" style="padding-top: 12px;">
-                <!-- Wake-Up Verification HUD Card -->
-                <div class="verification-hud-box">
-                    <div class="verification-metrics-grid">
-                        <div class="verification-metric-card">
-                            <span class="verification-metric-label"><i class="fas fa-tasks" style="color:#818cf8;"></i> Progress:</span>
-                            <span class="verification-metric-value" id="hud-progress-val">1/3</span>
-                            <div class="verification-progress-track">
-                                <div id="hud-progress-bar" class="verification-progress-fill" style="width: 33%;"></div>
+                <div class="db-nav-right">
+                    <button class="nav-toggle-theme" title="Toggle Theme" aria-label="Toggle Theme">
+                        <i class="fas fa-sun"></i>
+                    </button>
+                    <!-- Notification Bell Dropdown Wrapper -->
+                    <div class="notif-wrapper">
+                        <button class="notif-bell-btn" id="notif-trigger" title="Notifications" aria-label="Notifications">
+                            <i class="fas fa-bell"></i>
+                            <span class="notif-badge" id="notif-badge" style="display: none;">0</span>
+                        </button>
+                        <div class="notif-dropdown" id="notif-dropdown">
+                            <div class="notif-dropdown-header">
+                                <h4>Notifications</h4>
+                                <div class="notif-dropdown-actions">
+                                    <button id="notif-mark-all-read-btn" class="btn-text-action" title="Mark all as read"><i class="fas fa-check-double"></i></button>
+                                    <button id="notif-open-prefs-btn" class="btn-text-action" title="Notification Preferences"><i class="fas fa-sliders-h"></i></button>
+                                </div>
+                            </div>
+                            <div class="notif-dropdown-list" id="notif-dropdown-list">
+                                <div class="notif-loading"><div class="spinner-small"></div> Syncing notifications...</div>
+                            </div>
+                            <div class="notif-dropdown-footer">
+                                <a href="notifications.html">View All in Notification Center &rarr;</a>
                             </div>
                         </div>
-                        <div class="verification-metric-card">
-                            <span class="verification-metric-label"><i class="fas fa-check-circle" style="color:#10b981;"></i> Correct Answers:</span>
-                            <span class="verification-metric-value" id="hud-correct-val">0</span>
-                        </div>
-                        <div class="verification-metric-card">
-                            <span class="verification-metric-label"><i class="fas fa-bullseye" style="color:#ec4899;"></i> Required Accuracy:</span>
-                            <span class="verification-metric-value" id="hud-accuracy-val">2/3</span>
-                        </div>
-                        <div class="verification-metric-card">
-                            <span class="verification-metric-label"><i class="fas fa-fire" style="color:#f59e0b;"></i> Consecutive Correct:</span>
-                            <span class="verification-metric-value" id="hud-consecutive-val">0/2</span>
-                        </div>
                     </div>
-                    
-                    <div id="challenge-timer-container" class="verification-timer-banner" style="margin-bottom: 8px;">
-                        <span class="verification-timer-label"><i class="fas fa-clock" style="color: #f59e0b;"></i> Time Remaining:</span>
-                        <span id="challenge-timer-display" class="verification-timer-digits">18s</span>
-                    </div>
+                </div>
+            </header>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 0.75rem;">
-                        <span class="badge badge-info" id="challenge-type-badge">Math Problems</span>
-                        <span class="badge badge-warning" id="challenge-difficulty-badge">Medium</span>
-                        <span class="badge badge-primary" id="challenge-attempt-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4);">Attempt 1</span>
+            <div class="db-content" style="padding: 24px;">
+                <!-- Main Header Card -->
+                <div class="glass-card primary-hover" style="margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.5rem;"><i class="fas fa-bell grad-text"></i> Notification Center</h2>
+                            <p style="color: var(--text-secondary); margin-top: 4px; font-size: 0.85rem;">Bedtime reminders, wake alerts, habit milestones, multi-channel delivery & audit logs.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button id="notif-center-mark-all-btn" class="btn btn-secondary" style="font-size: 0.82rem; padding: 8px 14px;">
+                                <i class="fas fa-check-double" style="margin-right: 6px;"></i> Mark All Read
+                            </button>
+                            <button id="notif-center-clear-all-btn" class="btn btn-secondary" style="font-size: 0.82rem; padding: 8px 14px; color: #f87171; border-color: rgba(248,113,113,0.3);">
+                                <i class="fas fa-trash-alt" style="margin-right: 6px;"></i> Clear Read
+                            </button>
+                            <button id="notif-center-prefs-btn" class="btn btn-primary" style="font-size: 0.82rem; padding: 8px 14px;">
+                                <i class="fas fa-sliders-h" style="margin-right: 6px;"></i> Delivery Preferences
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <p id="challenge-subtitle" style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-bottom: 12px;">
-                    Solve the challenge to silence the wake-up alarm!
-                </p>
-                <div class="challenge-math-question" id="challenge-question" style="font-size: 1.1rem; padding: 14px; margin-bottom: 16px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 8px; font-weight:600; line-height: 1.4;">
-                    8 x 7 + 12
+                <!-- Filter Chips & Search Bar -->
+                <div class="glass-card" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div class="notif-filter-chips" id="notif-filter-chips">
+                            <button class="notif-chip active" data-filter="all"><i class="fas fa-layer-group"></i> All</button>
+                            <button class="notif-chip" data-filter="unread"><i class="fas fa-envelope"></i> Unread</button>
+                            <button class="notif-chip" data-filter="bedtime"><i class="fas fa-moon"></i> Bedtime</button>
+                            <button class="notif-chip" data-filter="wake_up"><i class="fas fa-sun"></i> Wake-Up</button>
+                            <button class="notif-chip" data-filter="habit_alert"><i class="fas fa-chart-line"></i> Habit Alerts</button>
+                            <button class="notif-chip" data-filter="challenge_reminder"><i class="fas fa-brain"></i> Challenges</button>
+                            <button class="notif-chip" data-filter="progress"><i class="fas fa-award"></i> Progress</button>
+                            <button class="notif-chip" data-filter="announcement"><i class="fas fa-bullhorn"></i> Announcements</button>
+                        </div>
+                        <div class="notif-search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="notif-center-search" placeholder="Search notifications...">
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Dynamic Options Container for Multiple Choice -->
-                <div id="challenge-options-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;"></div>
-
-                <!-- Text Input Container -->
-                <div class="form-group" id="challenge-input-group">
-                    <input type="text" id="challenge-answer" class="form-control" placeholder="Enter answer here..." required style="text-align: center; font-size: 1.1rem;">
+                <!-- Live Notification Stream Container -->
+                <div id="notif-center-list" class="notif-center-container" style="margin-bottom: 30px;">
+                    <div class="notif-empty-state">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>Loading notification center...</p>
+                    </div>
                 </div>
-                <div class="challenge-feedback" id="challenge-feedback" style="margin-top: 10px; font-weight: 600; text-align: center; min-height: 24px;"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="submit-challenge-btn" style="width: 100%; font-weight: 700; letter-spacing: 0.04em;">SUBMIT ANSWER</button>
             </div>
         </div>
     </div>
 
-    <audio id="alarm-audio" loop preload="auto">
-        <source src="../assets/sounds/radar.mp3" type="audio/mpeg">
-        <source src="/assets/sounds/radar.mp3" type="audio/mpeg">
-    </audio>
+    <!-- MODAL: NOTIFICATION PREFERENCES & MULTI-CHANNEL MATRIX -->
+    <div id="notification-preferences-modal" class="modal-overlay">
+        <div class="modal-container" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-sliders-h" style="color: var(--primary); margin-right: 8px;"></i> Notification Delivery Settings</h3>
+                <button class="modal-close-btn" id="notif-prefs-close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="notification-preferences-form">
+                <div class="modal-body" style="max-height: 72vh; overflow-y: auto; padding-right: 8px;">
+                    
+                    <!-- Global Channel Switcher -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; font-weight: 600;">
+                            Global Preferred Channel
+                        </label>
+                        <div class="channel-pill-group">
+                            <button type="button" class="channel-pill-btn active" data-channel="email" onclick="selectGlobalChannel('email')">
+                                <i class="fas fa-envelope"></i> Email
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="sms" onclick="selectGlobalChannel('sms')">
+                                <i class="fas fa-sms"></i> SMS
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="both" onclick="selectGlobalChannel('both')">
+                                <i class="fas fa-paper-plane"></i> Both (Email & SMS)
+                            </button>
+                            <button type="button" class="channel-pill-btn" data-channel="disabled" onclick="selectGlobalChannel('disabled')">
+                                <i class="fas fa-ban"></i> Disabled
+                            </button>
+                        </div>
+                    </div>
 
-    <script src="../js/utils.js?v=1.0.8"></script>
-    <script src="../js/auth.js?v=1.0.8"></script>
-    <script>protectPage('user');</script>
-    <script src="../js/user.js?v=1.0.8"></script>
+                    <!-- Phone Configuration Box -->
+                    <div class="phone-config-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label for="pref-phone-input" style="font-size: 0.85rem; font-weight: 600; color: #fff; margin: 0;">
+                                <i class="fas fa-mobile-alt" style="color: #38bdf8; margin-right: 6px;"></i> SMS Mobile Number
+                            </label>
+                            <span id="pref-phone-status-badge" class="phone-status-badge badge-missing">
+                                <i class="fas fa-exclamation-triangle"></i> Not Configured
+                            </span>
+                        </div>
+                        <input type="tel" id="pref-phone-input" class="form-control" placeholder="+1234567890 (Include country code)" style="font-size: 0.9rem;">
+                        <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 4px; display: block;">
+                            Required to receive SMS reminders and verification codes. E.164 format recommended.
+                        </small>
+                    </div>
+
+                    <!-- Phone Guidance Warning Alert (Dynamic) -->
+                    <div id="phone-guidance-alert" class="phone-guidance-alert" style="display: none;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.1rem; color: #f59e0b; margin-top: 2px;"></i>
+                        <div style="font-size: 0.8rem; color: #fde68a;">
+                            <strong>Mobile Number Needed:</strong> You have selected SMS delivery for one or more reminder categories, but have not configured a valid phone number. Please enter your mobile number above to ensure SMS delivery.
+                        </div>
+                    </div>
+
+                    <!-- Category Delivery Matrix -->
+                    <div class="pref-matrix-container">
+                        <div class="pref-matrix-header">
+                            <span style="font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em;">Category</span>
+                            <div class="pref-matrix-col-labels">
+                                <span><i class="fas fa-envelope"></i> Email</span>
+                                <span><i class="fas fa-sms"></i> SMS</span>
+                            </div>
+                        </div>
+
+                        <!-- 1. Bedtime Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-moon" style="color: #a855f7;"></i> Bedtime Reminders</span>
+                                <span class="pref-matrix-desc">Smart alerts before recommended sleep and wind-down periods.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-bedtime-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-bedtime-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 2. Wake-Up Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-sun" style="color: #f59e0b;"></i> Wake-Up Reminders</span>
+                                <span class="pref-matrix-desc">Advance notices for upcoming scheduled alarms.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-wakeup-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-wakeup-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 3. Habit Alerts -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-chart-line" style="color: #ef4444;"></i> Habit & Behavioral Alerts</span>
+                                <span class="pref-matrix-desc">Warnings on snooze spikes, wake inconsistency, and score dips.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-habit-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-habit-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 4. Challenge Reminders -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-brain" style="color: #38bdf8;"></i> Challenge Reminders</span>
+                                <span class="pref-matrix-desc">Prompts for verification challenges and cognitive drills.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-challenge-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-challenge-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 5. Progress Milestones -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-award" style="color: #22c55e;"></i> Progress & Streak Milestones</span>
+                                <span class="pref-matrix-desc">Celebrations when hitting streaks and habit score improvements.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-progress-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-progress-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 6. Platform Announcements -->
+                        <div class="pref-matrix-row">
+                            <div class="pref-matrix-info">
+                                <span class="pref-matrix-title"><i class="fas fa-bullhorn" style="color: #f97316;"></i> Platform Announcements</span>
+                                <span class="pref-matrix-desc">System updates, maintenance schedules, and feature news.</span>
+                            </div>
+                            <div class="pref-matrix-controls">
+                                <label class="toggle-switch" title="Email alerts">
+                                    <input type="checkbox" id="pref-announcement-email" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <label class="toggle-switch" title="SMS alerts">
+                                    <input type="checkbox" id="pref-announcement-sms">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lead Times & Browser Push -->
+                    <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 18px 0 10px;">Lead Time & Push Controls</h4>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label for="pref-bedtime-lead" style="font-size: 0.8rem; color: var(--text-secondary);">Bedtime Advance Notice</label>
+                            <select id="pref-bedtime-lead" class="form-control form-select" style="font-size: 0.85rem;">
+                                <option value="15">15 Minutes Before</option>
+                                <option value="30" selected>30 Minutes Before</option>
+                                <option value="45">45 Minutes Before</option>
+                                <option value="60">1 Hour Before</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label for="pref-wakeup-lead" style="font-size: 0.8rem; color: var(--text-secondary);">Wake-Up Advance Notice</label>
+                            <select id="pref-wakeup-lead" class="form-control form-select" style="font-size: 0.85rem;">
+                                <option value="5">5 Minutes Before</option>
+                                <option value="10" selected>10 Minutes Before</option>
+                                <option value="15">15 Minutes Before</option>
+                                <option value="30">30 Minutes Before</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 0.9rem; color: #fff;"><i class="fas fa-desktop" style="color: #818cf8; margin-right: 6px;"></i> Browser Push Notifications</h4>
+                            <p style="margin: 2px 0 0; font-size: 0.75rem; color: var(--text-secondary);">Instant alerts when the browser window is active.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button type="button" id="notif-request-permission-btn" class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 10px;">
+                                Request Permission
+                            </button>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pref-browser" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel-btn" id="notif-prefs-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="notif-prefs-save-btn">Save Preferences</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Sources -->
+    <script src="../js/config.js?v=1.1.0"></script>
+    <script src="../js/utils.js?v=1.1.0"></script>
+    <script src="../js/auth.js?v=1.1.0"></script>
+    <script>
+        protectPage('user');
+    </script>
+    <script src="../js/user.js?v=1.1.0"></script>
+    <script src="../js/notifications.js?v=1.1.0"></script>
 </body>
 </html>

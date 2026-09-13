@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
 </head>
+
 <body data-theme="dark">
     <div class="db-wrapper">
         <aside class="db-sidebar">
@@ -17,21 +19,40 @@
                 </div>
             </div>
             <ul class="sidebar-menu">
-                <li class="sidebar-menu-item"><a href="dashboard-admin.html#dashboard"><i class="fas fa-sliders-h"></i> <span>Dashboard</span></a></li>
-                <li class="sidebar-menu-item active"><a href="users.html"><i class="fas fa-users-cog"></i> <span>Users Console</span></a></li>
-                <li class="sidebar-menu-item"><a href="roles.html"><i class="fas fa-key"></i> <span>Role Permissions</span></a></li>
-                <li class="sidebar-menu-item"><a href="reports.html"><i class="fas fa-file-alt"></i> <span>Reports & Exports</span></a></li>
-                <li class="sidebar-menu-item"><a href="analytics.html"><i class="fas fa-chart-bar"></i> <span>System Analytics</span></a></li>
+                <li class="sidebar-menu-item"><a href="dashboard-admin.html#dashboard"><i class="fas fa-sliders-h"></i>
+                        <span>Dashboard</span></a></li>
+                <li class="sidebar-menu-item active"><a href="users.html"><i class="fas fa-users-cog"></i> <span>Users
+                            Console</span></a></li>
+                <li class="sidebar-menu-item"><a href="roles.html"><i class="fas fa-key"></i> <span>Role
+                            Permissions</span></a></li>
+                <li class="sidebar-menu-item"><a href="reports.html"><i class="fas fa-file-alt"></i> <span>Reports &
+                            Exports</span></a></li>
+                <li class="sidebar-menu-item"><a href="analytics.html"><i class="fas fa-chart-bar"></i> <span>System
+                            Analytics</span></a></li>
             </ul>
         </aside>
 
         <main class="db-main" style="padding: 24px;">
             <div class="glass-card primary-hover" style="margin-bottom: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>User Profile Accounts database</h3>
-                    <button class="btn btn-primary" onclick="Modal.open('add-user-modal')">
-                        <i class="fas fa-user-plus"></i> Create User
-                    </button>
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3 style="margin: 0;">User Profile Accounts database</h3>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 4px 0 0;">Audit and export
+                            live user accounts directly from PostgreSQL.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" style="padding: 7px 12px; font-size: 0.82rem;"
+                            onclick="exportAdminReport('pdf', 'users')"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button class="btn btn-secondary" style="padding: 7px 12px; font-size: 0.82rem;"
+                            onclick="exportAdminReport('excel', 'users')"><i class="fas fa-file-excel"></i>
+                            Excel</button>
+                        <button class="btn btn-secondary" style="padding: 7px 12px; font-size: 0.82rem;"
+                            onclick="exportAdminReport('csv', 'users')"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button class="btn btn-primary" onclick="Modal.open('add-user-modal')">
+                            <i class="fas fa-user-plus"></i> Create User
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="custom-table" id="all-users-console-table">
@@ -40,7 +61,7 @@
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Role Permission</th>
-                                <th>Default Password</th>
+                                <th>Alarms Configured</th>
                                 <th>Operations</th>
                             </tr>
                         </thead>
@@ -53,9 +74,11 @@
 
     <!-- Script Sources -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../js/utils.js?v=1.0.6"></script>
-    <script src="../js/auth.js?v=1.0.6"></script>
+    <script src="../js/config.js?v=1.0.9"></script>
+    <script src="../js/utils.js?v=1.0.9"></script>
+    <script src="../js/auth.js?v=1.0.9"></script>
     <script>protectPage('admin');</script>
-    <script src="../js/admin.js?v=1.0.1"></script>
+    <script src="../js/admin.js?v=1.0.9"></script>
 </body>
+
 </html>

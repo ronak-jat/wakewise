@@ -27,7 +27,8 @@ from services.verification_service import (
     init_verification_session,
     process_verification_step,
     get_verification_session,
-    remove_verification_session
+    remove_verification_session,
+    normalize_answer
 )
 from services.challenge_store import find_session_by_alarm
 from schemas import (
