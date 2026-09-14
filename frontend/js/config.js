@@ -37,9 +37,7 @@
             }
         } else {
             // Production deployment (e.g. Vercel)
-            // Replace '<railway-backend-domain>' with your live Railway domain,
-            // e.g.: 'https://wakewise-production.up.railway.app'
-            global.API_BASE_URL = 'https://<railway-backend-domain>';
+            global.API_BASE_URL = 'https://web-production-de20d.up.railway.app';
         }
     }
 
