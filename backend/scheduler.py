@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import uuid
+from typing import Optional
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Alarm, User
@@ -20,6 +21,7 @@ logger = logging.getLogger("alarm_scheduler")
 
 triggered_alarms = []
 scheduled_snoozes = []
+_scheduler_task: Optional[asyncio.Task] = None
 
 
 def schedule_snooze(alarm: Alarm, due_at: datetime.datetime, snooze_count: int) -> None:
@@ -145,6 +147,7 @@ async def alarm_scheduler_loop():
     triggered_cache = set()
 
     while True:
+        db = None
         try:
             db = SessionLocal()
             now = datetime.datetime.now()
@@ -278,8 +281,35 @@ async def alarm_scheduler_loop():
             except Exception as notif_err:
                 logger.debug(f"Notification evaluation note: {notif_err}")
 
-            db.close()
         except Exception as e:
             logger.error(f"Error in alarm scheduler loop: {e}")
+        finally:
+            if db is not None:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
         await asyncio.sleep(30)
+
+
+async def start_scheduler_if_not_running() -> asyncio.Task:
+    """
+    Ensures the background alarm scheduler loop starts exactly once.
+    Avoids duplicate scheduler tasks if re-triggered.
+    """
+    global _scheduler_task
+    if _scheduler_task is not None and not _scheduler_task.done():
+        logger.info("Alarm scheduler loop is already running.")
+        return _scheduler_task
+    _scheduler_task = asyncio.create_task(alarm_scheduler_loop(), name="wakewise_alarm_scheduler")
+    return _scheduler_task
+
+
+def stop_scheduler_task() -> None:
+    """Gracefully cancels the background alarm scheduler loop if running."""
+    global _scheduler_task
+    if _scheduler_task is not None and not _scheduler_task.done():
+        logger.info("Stopping alarm scheduler background task...")
+        _scheduler_task.cancel()
+

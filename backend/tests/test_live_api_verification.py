@@ -17,6 +17,14 @@ def get_json(endpoint: str):
     res = urllib.request.urlopen(f"{BASE_URL}{endpoint}")
     return json.loads(res.read().decode("utf-8"))
 
+def server_is_running():
+    try:
+        urllib.request.urlopen(f"{BASE_URL}/health", timeout=1.0)
+        return True
+    except Exception:
+        return False
+
+@unittest.skipUnless(server_is_running(), "Requires running backend server at http://127.0.0.1:8000")
 class TestLiveVerificationFlows(unittest.TestCase):
 
     def test_01_health_and_types(self):

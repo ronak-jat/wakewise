@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/user/dashboard-user.html" },
+    { "source": "/dashboard-user.html", "destination": "/user/dashboard-user.html" },
+    { "source": "/dashboard-admin.html", "destination": "/admin/dashboard-admin.html" },
+    { "source": "/dashboard-coach.html", "destination": "/coach/dashboard-coach.html" },
+    { "source": "/login", "destination": "/login.html" }
+  ]
+}

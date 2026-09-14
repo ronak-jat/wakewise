@@ -81,7 +81,12 @@
 
                 <!-- Official Google Identity Services Render Container -->
                 <div id="google-button-container"
-                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 16px; min-height: 44px;">
+                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 8px; min-height: 44px;">
+                </div>
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <a id="google-redirect-link" href="#" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: underline; cursor: pointer;">
+                        <i class="fab fa-google" style="margin-right: 4px;"></i> Alternate Google Sign-In (Redirect Flow)
+                    </a>
                 </div>
             </div>
 
@@ -147,7 +152,7 @@
     <script src="js/auth.js?v=1.0.2"></script>
     <script>
         // Google OAuth Configuration
-        window.GOOGLE_CLIENT_ID = "1057786367809-mb9h4k6bjvcld420dpijgl6a038pcdjc.apps.googleusercontent.com";
+        window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || "1057786367809-mb9h4k6bjvcld420dpijgl6a038pcdjc.apps.googleusercontent.com";
 
         // 1. Official Google Identity Services (GSI) Callback
         window.handleGoogleCredentialResponse = async function (response) {
@@ -248,6 +253,28 @@
             const toLoginBtn = document.getElementById('to-login-btn');
 
             const roleHiddenInput = document.getElementById('login-role');
+
+            // Handle URL auth error notices
+            const urlParams = new URLSearchParams(window.location.search);
+            const authError = urlParams.get('error');
+            if (authError) {
+                let errorMsg = 'Google authentication could not be completed.';
+                if (authError === 'admin_oauth_forbidden') errorMsg = 'Google Sign-In is disabled for Administrator accounts.';
+                if (authError === 'google_auth_failed') errorMsg = 'Google sign-in was canceled or encountered an issue.';
+                Toast.show('Authentication Notice', errorMsg, 'warning');
+            }
+
+            // Bind fallback Google OAuth redirect flow
+            const redirectLink = document.getElementById('google-redirect-link');
+            if (redirectLink) {
+                redirectLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const role = roleHiddenInput ? roleHiddenInput.value : 'user';
+                    const apiBase = window.API_BASE_URL || '';
+                    window.location.href = `${apiBase}/api/auth/google/login?role=${encodeURIComponent(role)}`;
+                });
+            }
+
 
             const roleTabs = document.querySelectorAll('.role-tab-btn');
             const loginTitle = document.getElementById('login-title');

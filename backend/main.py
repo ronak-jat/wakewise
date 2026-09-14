@@ -1,14 +1,24 @@
 import os
+import sys
+import time
 import logging
 import asyncio
+import datetime
+
+# Ensure current directory is always in sys.path for direct or module execution
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from starlette.requests import Request
+
 from config import settings
 from database import engine, Base, run_db_migrations
 from routes import auth, alarms, challenges, analytics, dashboard, admin, notifications
-from scheduler import alarm_scheduler_loop
+from scheduler import start_scheduler_if_not_running, stop_scheduler_task
+from services.metrics_collector import metrics_collector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,18 +33,25 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-import time
-from starlette.requests import Request
-from services.metrics_collector import metrics_collector
-
 # Configure CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_origins = settings.get_allowed_origins()
+if "*" in cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"^https:\/\/.*\.vercel\.app$"),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Lightweight Server-Side Timing Middleware for System Performance Monitoring
 @app.middleware("http")
@@ -80,51 +97,72 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Warning during DB table initialization: {e}")
 
-    # Launch the background alarm scheduler loop
-    asyncio.create_task(alarm_scheduler_loop())
+    # Launch the background alarm scheduler loop (guaranteed single instance)
+    await start_scheduler_if_not_running()
 
 
+@app.on_event("shutdown")
+def shutdown_event():
+    """Gracefully cancel background tasks upon application shutdown."""
+    stop_scheduler_task()
+
+
+@app.get("/health", tags=["Health Check"])
 @app.get("/api/health", tags=["Health Check"])
 def health_check():
-    return {"status": "healthy", "app": settings.APP_NAME}
+    """Lightweight health check endpoint indicating API operational status."""
+    return {
+        "status": "healthy",
+        "app": settings.APP_NAME,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
 
-# Mount static frontend directory if present
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_root = os.path.join(project_root, "frontend")
-assets_root = os.path.join(project_root, "assets")
 
 # Top-level Dashboard & Navigation convenience redirects
-from fastapi.responses import RedirectResponse
+def get_frontend_redirect(relative_path: str) -> str:
+    """Returns absolute frontend URL in production, or relative path in development."""
+    fe = (settings.FRONTEND_URL or "").strip().rstrip("/")
+    if fe and not ("localhost" in fe or "127.0.0.1" in fe):
+        return f"{fe}/{relative_path.lstrip('/')}"
+    return relative_path
+
 
 @app.get("/dashboard-user.html", include_in_schema=False)
 @app.get("/dashboard", include_in_schema=False)
 def redirect_user_dashboard():
-    return RedirectResponse(url="/user/dashboard-user.html")
+    return RedirectResponse(url=get_frontend_redirect("/user/dashboard-user.html"))
 
 @app.get("/dashboard-admin.html", include_in_schema=False)
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/dashboard", include_in_schema=False)
 def redirect_admin_dashboard():
-    return RedirectResponse(url="/admin/dashboard-admin.html")
+    return RedirectResponse(url=get_frontend_redirect("/admin/dashboard-admin.html"))
 
 @app.get("/dashboard-coach.html", include_in_schema=False)
 @app.get("/coach", include_in_schema=False)
 @app.get("/coach/dashboard", include_in_schema=False)
 def redirect_coach_dashboard():
-    return RedirectResponse(url="/coach/dashboard-coach.html")
+    return RedirectResponse(url=get_frontend_redirect("/coach/dashboard-coach.html"))
 
 @app.get("/login", include_in_schema=False)
 def redirect_login():
-    return RedirectResponse(url="/login.html")
+    return RedirectResponse(url=get_frontend_redirect("/login.html"))
 
-# Serve static frontend pages from the frontend folder.
-# Mounting at root handles all non-/api routes automatically.
+
+# Mount static frontend directory if present (for local development convenience)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+frontend_root = os.path.join(project_root, "frontend")
+assets_root = os.path.join(project_root, "assets")
+
 if os.path.exists(assets_root):
     app.mount("/assets", StaticFiles(directory=assets_root), name="assets")
 
 if os.path.exists(frontend_root):
     app.mount("/", StaticFiles(directory=frontend_root, html=True), name="frontend")
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", settings.PORT or 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=settings.DEBUG)
+

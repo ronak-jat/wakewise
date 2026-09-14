@@ -1,5 +1,11 @@
+import os
+import sys
 import unittest
 from types import SimpleNamespace
+
+# Ensure backend root is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 
 from scheduler import deactivate_one_time_alarm_if_needed
 

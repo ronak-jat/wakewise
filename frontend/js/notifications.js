@@ -4,8 +4,7 @@
    (Email, SMS, Both, Disabled), Category Matrix, History Audit & Report Delivery.
    ========================================================================== */
 
-// Ensure API base URL is initialized
-window.API_BASE_URL = window.API_BASE_URL || (typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://127.0.0.1:8000');
+// API Base URL is globally initialized by config.js
 
 let activeNotificationsList = [];
 let activeNotifCategory = 'all';

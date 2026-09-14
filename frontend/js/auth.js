@@ -2,16 +2,42 @@
    INTELLIGENT COGNITIVE ALARM PLATFORM - FASTAPI & DATABASE AUTH CONTROLLER
    ========================================================================== */
 
-// Determine API Base URL dynamically
-const getApiBaseUrl = () => {
-    if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.startsWith('http')) {
-        if (window.location.port === '8000') {
-            return '';
+// Automatically capture OAuth tokens/session redirected from backend
+(function handleOAuthRedirectParams() {
+    if (typeof window === 'undefined' || !window.location) return;
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const sessionEncoded = urlParams.get('session');
+
+        if (token && sessionEncoded) {
+            const userObj = JSON.parse(decodeURIComponent(sessionEncoded));
+            localStorage.setItem('sessionUser', JSON.stringify(userObj));
+            urlParams.delete('token');
+            urlParams.delete('session');
+            const cleanSearch = urlParams.toString() ? `?${urlParams.toString()}` : '';
+            window.history.replaceState({}, document.title, window.location.pathname + cleanSearch + window.location.hash);
+        } else if (token) {
+            const existing = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+            existing.accessToken = token;
+            localStorage.setItem('sessionUser', JSON.stringify(existing));
+            urlParams.delete('token');
+            const cleanSearch = urlParams.toString() ? `?${urlParams.toString()}` : '';
+            window.history.replaceState({}, document.title, window.location.pathname + cleanSearch + window.location.hash);
         }
-        return 'http://localhost:8000';
+    } catch (e) {
+        console.warn('OAuth redirect URL parsing note:', e);
     }
-    return 'http://localhost:8000';
+})();
+
+// Access centralized API Base URL from config.js
+const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined' && window.API_BASE_URL !== undefined) {
+        return window.API_BASE_URL;
+    }
+    return '';
 };
+
 
 
 function getRelativePath(targetPath) {
