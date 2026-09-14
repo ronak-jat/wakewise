@@ -202,6 +202,7 @@ class PlatformAnnouncement(Base):
     title = Column(String(255), nullable=False)
     message = Column(String(3000), nullable=False)
     priority = Column(String(20), nullable=False, default="normal") # low, normal, high, urgent
+    target_role = Column(String(50), nullable=False, default="all") # all, user, coach, admin
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     start_time = Column(DateTime(timezone=True), nullable=True)
     end_time = Column(DateTime(timezone=True), nullable=True)
@@ -210,7 +211,7 @@ class PlatformAnnouncement(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     def __repr__(self):
-        return f"<PlatformAnnouncement(id={self.id}, title='{self.title}', active={self.is_active}, priority='{self.priority}')>"
+        return f"<PlatformAnnouncement(id={self.id}, title='{self.title}', target_role='{self.target_role}', active={self.is_active}, priority='{self.priority}')>"
 
 
 class UserNotificationPreference(Base):

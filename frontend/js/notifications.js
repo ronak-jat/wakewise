@@ -887,6 +887,9 @@ function getCategoryIcon(type) {
         case 'progress': return 'fas fa-award';
         case 'platform_announcement':
         case 'announcement': return 'fas fa-bullhorn';
+        case 'coach_recommendation':
+        case 'coach': return 'fas fa-comment-medical';
+        case 'report_delivery': return 'fas fa-file-alt';
         default: return 'fas fa-bell';
     }
 }
@@ -901,6 +904,9 @@ function getCategoryLabel(type) {
         case 'progress': return 'Progress';
         case 'platform_announcement':
         case 'announcement': return 'Announcement';
+        case 'coach_recommendation':
+        case 'coach': return 'Coach Advice';
+        case 'report_delivery': return 'Report';
         default: return 'Reminder';
     }
 }
@@ -915,6 +921,9 @@ function getCategoryBadgeClass(type) {
         case 'progress': return 'badge-success';
         case 'platform_announcement':
         case 'announcement': return 'badge-primary';
+        case 'coach_recommendation':
+        case 'coach': return 'badge-success';
+        case 'report_delivery': return 'badge-info';
         default: return 'badge-info';
     }
 }

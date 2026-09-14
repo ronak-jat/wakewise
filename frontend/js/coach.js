@@ -116,7 +116,7 @@ async function loadCoachDashboardData() {
     renderOptimalPatientsTable(wellnessData);
     renderHelpList(wellnessData);
     renderPatientReports(wellnessData, sleepTrendsData);
-    renderMessageLogs();
+    await loadCoachDispatchedLogs();
     initCoachCharts(wellnessData, sleepTrendsData, challengeData);
     loadCoachHabitAnalytics();
 }
@@ -238,7 +238,7 @@ function populatePatientSelects() {
         } else {
             registeredPatients.forEach(p => {
                 const opt = document.createElement('option');
-                opt.value = p.name || p.email;
+                opt.value = p.id;
                 opt.textContent = `${p.name || 'User'} (${p.email})`;
                 sel.appendChild(opt);
             });
@@ -297,7 +297,7 @@ function renderHelpList(wellnessData) {
             <td><span class="badge ${badgeClass}">${habitText}</span></td>
             <td><i class="fas fa-exclamation-circle text-warning"></i> ${sleepText}</td>
             <td style="display: flex; gap: 6px; align-items: center;">
-                <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openRecommendationFor('${p.name || p.email}')">
+                <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="openRecommendationFor(${p.id})">
                     Intervene
                 </button>
                 <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="viewPatientHabits(${p.id})" title="View user habit analytics">
@@ -345,13 +345,33 @@ function renderPatientReports(wellnessData, sleepTrendsData) {
     });
 }
 
+async function loadCoachDispatchedLogs() {
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/notifications/coach/dispatched?limit=50`, {
+            headers: getAuthHeaders()
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            coachRecommendationLogs = (data.logs || []).map(l => ({
+                date: l.time_ago || (l.created_at ? new Date(l.created_at).toLocaleString() : 'Recently'),
+                patient: `${l.patient_name} (${l.patient_email})`,
+                notes: l.message,
+                status: (l.delivery_status || 'Delivered').toUpperCase()
+            }));
+            localStorage.setItem('coach_recommendations', JSON.stringify(coachRecommendationLogs));
+        }
+    } catch (err) {
+        console.warn('Error loading dispatched coach logs:', err);
+    }
+    renderMessageLogs();
+}
+
 function renderMessageLogs() {
     const tbody = document.getElementById('messages-table')?.querySelector('tbody');
     if (!tbody) return;
-    localStorage.setItem('coach_recommendations', JSON.stringify(coachRecommendationLogs));
     tbody.innerHTML = '';
 
-    if (coachRecommendationLogs.length === 0) {
+    if (!coachRecommendationLogs || coachRecommendationLogs.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">No coach recommendations dispatched yet.</td></tr>';
         return;
     }
@@ -360,18 +380,24 @@ function renderMessageLogs() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><span style="font-size:0.8rem; color:var(--text-muted);">${l.date}</span></td>
-            <td><strong>${l.patient}</strong></td>
-            <td style="font-size:0.85rem; color:var(--text-secondary);">${l.notes}</td>
-            <td><span class="badge badge-success"><i class="fas fa-check-double" style="margin-right:4px;"></i> ${l.status}</span></td>
+            <td><strong>${escapeHtml(l.patient)}</strong></td>
+            <td style="font-size:0.85rem; color:var(--text-secondary);">${escapeHtml(l.notes)}</td>
+            <td><span class="badge badge-success"><i class="fas fa-check-double" style="margin-right:4px;"></i> ${l.status || 'DELIVERED'}</span></td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-window.openRecommendationFor = (patientName) => {
+window.openRecommendationFor = (patientIdentifier) => {
+    let patientId = patientIdentifier;
+    if (typeof patientIdentifier === 'string') {
+        const matched = registeredPatients.find(p => p.name === patientIdentifier || p.email === patientIdentifier || String(p.id) === patientIdentifier);
+        if (matched) patientId = matched.id;
+    }
+
     const selectModal = document.getElementById('modal-rec-patient');
-    if (selectModal) {
-        selectModal.value = patientName;
+    if (selectModal && patientId) {
+        selectModal.value = patientId;
     }
     Modal.open('recommendation-modal');
 };
@@ -379,44 +405,76 @@ window.openRecommendationFor = (patientName) => {
 // 3. Recommendation Submissions
 const directForm = document.getElementById('recommendation-form-direct');
 if (directForm) {
-    directForm.addEventListener('submit', (e) => {
+    directForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const patient = document.getElementById('rec-patient').value;
+        const patientVal = document.getElementById('rec-patient').value;
         const notes = document.getElementById('rec-text').value;
-        submitRecommendation(patient, notes);
+        await submitRecommendation(patientVal, notes);
         directForm.reset();
     });
 }
 
 const modalForm = document.getElementById('recommendation-form-modal');
 if (modalForm) {
-    modalForm.addEventListener('submit', (e) => {
+    modalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const patient = document.getElementById('modal-rec-patient').value;
+        const patientVal = document.getElementById('modal-rec-patient').value;
         const notes = document.getElementById('modal-rec-text').value;
-        submitRecommendation(patient, notes);
-        Modal.close('recommendation-modal');
-        modalForm.reset();
+        const success = await submitRecommendation(patientVal, notes);
+        if (success) {
+            Modal.close('recommendation-modal');
+            modalForm.reset();
+        }
     });
 }
 
-function submitRecommendation(patient, notes) {
-    if (!patient || !notes.trim()) {
+async function submitRecommendation(patientIdentifier, notes) {
+    if (!patientIdentifier || !notes || !notes.trim()) {
         Toast.show('Missing Input', 'Please select a recipient and enter recommendation notes.', 'warning', 2500);
-        return;
+        return false;
     }
 
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date().toLocaleDateString();
-    
-    coachRecommendationLogs.unshift({
-        date: timestamp,
-        patient: patient,
-        notes: notes.trim(),
-        status: 'Delivered'
-    });
+    let targetPatient = registeredPatients.find(p => String(p.id) === String(patientIdentifier) || p.email === patientIdentifier || p.name === patientIdentifier);
+    if (!targetPatient && !isNaN(parseInt(patientIdentifier, 10))) {
+        targetPatient = { id: parseInt(patientIdentifier, 10), name: `User #${patientIdentifier}`, email: '' };
+    }
 
-    renderMessageLogs();
-    Toast.show('Advice Transmitted', `Successfully delivered advice recommendations to ${patient}.`, 'success', 3000);
+    if (!targetPatient) {
+        Toast.show('Invalid Patient', 'Could not identify target patient.', 'danger', 2500);
+        return false;
+    }
+
+    const session = JSON.parse(localStorage.getItem('sessionUser') || '{}');
+    const coachName = session.name || 'Dr. Jenkins';
+
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/notifications/coach`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                user_id: targetPatient.id,
+                message: notes.trim(),
+                title: `Coach Advice: ${coachName}`,
+                priority: 'normal',
+                action_url: 'user/habits.html'
+            })
+        });
+
+        if (resp.ok) {
+            const data = await resp.json();
+            Toast.show('Advice Transmitted', `Successfully delivered advice recommendations to ${targetPatient.name || targetPatient.email}.`, 'success', 3000);
+            await loadCoachDispatchedLogs();
+            return true;
+        } else {
+            const errData = await resp.json().catch(() => ({}));
+            Toast.show('Delivery Failed', errData.detail || 'Could not deliver recommendation notification.', 'danger', 3500);
+            return false;
+        }
+    } catch (err) {
+        console.error('Error submitting coach recommendation:', err);
+        Toast.show('Network Error', 'Failed to reach notification server.', 'danger', 3000);
+        return false;
+    }
 }
 
 // 4. Real Chart.js Rendering
@@ -609,7 +667,7 @@ window.viewPatientHabits = (patientId) => {
 window.openRecommendationForCurrentPatient = () => {
     const selectedPatient = registeredPatients.find(p => p.id === currentCoachHabitPatientId);
     if (selectedPatient) {
-        openRecommendationFor(selectedPatient.name || selectedPatient.email);
+        openRecommendationFor(selectedPatient.id);
     } else {
         Modal.open('recommendation-modal');
     }

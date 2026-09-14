@@ -931,10 +931,38 @@ class ScheduleReportResponse(BaseModel):
     enabled: bool
 
 
+class CoachNotificationRequest(BaseModel):
+    user_id: int
+    message: str
+    title: Optional[str] = None
+    priority: Optional[str] = "normal"
+    action_url: Optional[str] = "user/habits.html"
+
+
+class CoachDispatchedLogItem(BaseModel):
+    id: int
+    user_id: int
+    patient_name: str
+    patient_email: str
+    title: str
+    message: str
+    delivery_channel: str
+    delivery_status: str
+    is_read: bool
+    created_at: Optional[str] = None
+    time_ago: Optional[str] = None
+
+
+class CoachDispatchedLogsResponse(BaseModel):
+    total: int
+    logs: List[CoachDispatchedLogItem]
+
+
 class AnnouncementCreateRequest(BaseModel):
     title: str
     message: str
     priority: Optional[str] = "normal"
+    target_role: Optional[str] = "all"
     is_active: Optional[bool] = True
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -944,6 +972,7 @@ class AnnouncementUpdateRequest(BaseModel):
     title: Optional[str] = None
     message: Optional[str] = None
     priority: Optional[str] = None
+    target_role: Optional[str] = None
     is_active: Optional[bool] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -954,6 +983,7 @@ class AnnouncementResponse(BaseModel):
     title: str
     message: str
     priority: str = "normal"
+    target_role: str = "all"
     is_active: bool = True
     start_time: Optional[str] = None
     end_time: Optional[str] = None

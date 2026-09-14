@@ -7,7 +7,7 @@ from sqlalchemy import desc
 
 from database import get_db
 from models import Notification, User, UserNotificationPreference
-from routes.auth import get_current_user
+from routes.auth import get_current_user, get_current_coach_user
 from schemas import (
     NotificationResponse,
     NotificationListResponse,
@@ -19,12 +19,17 @@ from schemas import (
     DeliveryProviderStatusResponse,
     ScheduleReportRequest,
     ScheduleReportResponse,
+    CoachNotificationRequest,
+    CoachDispatchedLogsResponse,
+    CoachDispatchedLogItem,
 )
 from services.notification_service import (
     evaluate_user_notifications,
     get_or_create_user_preferences,
     format_time_ago,
     dispatch_scheduled_report_notification,
+    send_coach_notification,
+    get_coach_dispatched_notifications,
 )
 from services.delivery_service import (
     get_provider_status,
@@ -95,6 +100,60 @@ def _map_preferences(pref: UserNotificationPreference, user: User) -> Notificati
     )
 
 
+@router.post("/coach", response_model=NotificationResponse, status_code=status.HTTP_201_CREATED)
+def dispatch_coach_recommendation_notification(
+    payload: CoachNotificationRequest,
+    db: Session = Depends(get_db),
+    coach_user: User = Depends(get_current_coach_user),
+):
+    """
+    Sends personalized coach recommendation notification directly to a target user.
+    Requires Wellness Coach or Administrator authorization.
+    """
+    if not payload.message or not payload.message.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recommendation message content cannot be empty."
+        )
+
+    try:
+        notif = send_coach_notification(
+            db=db,
+            coach_user=coach_user,
+            user_id=payload.user_id,
+            message=payload.message,
+            title=payload.title,
+            priority=payload.priority or "normal",
+            action_url=payload.action_url or "user/habits.html",
+        )
+        return _map_notification(notif)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(val_err)
+        )
+    except Exception as e:
+        logger.error(f"Failed to dispatch coach notification: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save and deliver coach recommendation."
+        )
+
+
+@router.get("/coach/dispatched", response_model=CoachDispatchedLogsResponse)
+def get_coach_dispatched_history(
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    coach_user: User = Depends(get_current_coach_user),
+):
+    """
+    Returns history of recommendations dispatched by the authenticated wellness coach.
+    """
+    items = get_coach_dispatched_notifications(db, coach_user, limit=limit)
+    logs = [CoachDispatchedLogItem(**item) for item in items]
+    return CoachDispatchedLogsResponse(total=len(logs), logs=logs)
+
+
 @router.get("/", response_model=NotificationListResponse)
 def get_user_notifications(
     type: Optional[str] = Query(None, description="Filter by notification type"),
@@ -114,7 +173,15 @@ def get_user_notifications(
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
 
     if type and type != "all":
-        query = query.filter(Notification.type == type)
+        type_clean = type.strip().lower()
+        if type_clean in ("announcement", "platform_announcement"):
+            query = query.filter(Notification.type.in_(["platform_announcement", "announcement"]))
+        elif type_clean in ("challenge", "challenge_reminder"):
+            query = query.filter(Notification.type.in_(["challenge", "challenge_reminder"]))
+        elif type_clean in ("coach", "coach_recommendation", "recommendation"):
+            query = query.filter(Notification.type.in_(["coach_recommendation", "coach", "recommendation"]))
+        else:
+            query = query.filter(Notification.type == type)
 
     if unread_only:
         query = query.filter(Notification.is_read == False)

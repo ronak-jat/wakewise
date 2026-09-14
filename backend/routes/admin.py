@@ -14,6 +14,7 @@ from routes.auth import get_current_admin_user
 from services.habit_score_service import calculate_habit_score_snapshot
 from services.personalization_service import ALLOWED_TYPES, DIFFICULTY_LEVELS
 from services.performance_metrics_service import calculate_performance_metrics
+from services.notification_service import broadcast_announcements_to_users
 from schemas import (
     AdminDashboardResponse,
     AdminUserItem,
@@ -654,6 +655,7 @@ def _map_announcement(a: PlatformAnnouncement) -> AnnouncementResponse:
         title=a.title,
         message=a.message,
         priority=a.priority or "normal",
+        target_role=getattr(a, "target_role", "all") or "all",
         is_active=a.is_active,
         start_time=a.start_time.strftime("%Y-%m-%d %H:%M:%S") if a.start_time else None,
         end_time=a.end_time.strftime("%Y-%m-%d %H:%M:%S") if a.end_time else None,
@@ -687,7 +689,7 @@ def create_admin_announcement(
     admin_user: User = Depends(get_current_admin_user),
 ):
     """
-    Creates a new platform announcement. Requires Admin permissions.
+    Creates a new platform announcement and broadcasts to targeted users. Requires Admin permissions.
     """
     if not payload.title.strip() or not payload.message.strip():
         raise HTTPException(
@@ -700,10 +702,13 @@ def create_admin_announcement(
     if priority not in valid_priorities:
         priority = "normal"
 
+    target_role = (payload.target_role or "all").strip().lower()
+
     ann = PlatformAnnouncement(
         title=payload.title.strip(),
         message=payload.message.strip(),
         priority=priority,
+        target_role=target_role,
         is_active=payload.is_active if payload.is_active is not None else True,
         start_time=payload.start_time,
         end_time=payload.end_time,
@@ -712,7 +717,14 @@ def create_admin_announcement(
     db.add(ann)
     db.commit()
     db.refresh(ann)
-    logger.info(f"Created platform announcement ID {ann.id}: '{ann.title}' by admin {admin_user.email}")
+    logger.info(f"Created platform announcement ID {ann.id}: '{ann.title}' (target: {target_role}) by admin {admin_user.email}")
+
+    if ann.is_active:
+        try:
+            broadcast_announcements_to_users(db)
+        except Exception as e:
+            logger.warning(f"Error broadcasting announcement {ann.id}: {e}")
+
     return _map_announcement(ann)
 
 
@@ -746,6 +758,9 @@ def update_admin_announcement(
     if payload.priority is not None:
         ann.priority = payload.priority.lower()
 
+    if payload.target_role is not None:
+        ann.target_role = payload.target_role.strip().lower()
+
     if payload.is_active is not None:
         ann.is_active = payload.is_active
 
@@ -757,6 +772,13 @@ def update_admin_announcement(
 
     db.commit()
     db.refresh(ann)
+
+    if ann.is_active:
+        try:
+            broadcast_announcements_to_users(db)
+        except Exception as e:
+            logger.warning(f"Error broadcasting updated announcement {ann.id}: {e}")
+
     return _map_announcement(ann)
 
 
@@ -779,6 +801,13 @@ def toggle_admin_announcement_status(
     ann.is_active = not ann.is_active
     db.commit()
     db.refresh(ann)
+
+    if ann.is_active:
+        try:
+            broadcast_announcements_to_users(db)
+        except Exception as e:
+            logger.warning(f"Error broadcasting toggled announcement {ann.id}: {e}")
+
     return _map_announcement(ann)
 
 

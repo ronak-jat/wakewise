@@ -100,10 +100,20 @@ class TestNotificationsSystem(unittest.TestCase):
             provider="LOCAL"
         )
         self.db.add(self.admin)
+        # Create coach user
+        self.coach = User(
+            name="Dr. Jenkins",
+            email="coach@test.com",
+            password=hash_password("CoachPass123"),
+            role="COACH",
+            provider="LOCAL"
+        )
+        self.db.add(self.coach)
         self.db.commit()
         self.db.refresh(self.user)
         self.db.refresh(self.user_no_phone)
         self.db.refresh(self.admin)
+        self.db.refresh(self.coach)
 
         self.user_token = create_access_token(data={"sub": self.user.email, "role": self.user.role})
         self.user_headers = {"Authorization": f"Bearer {self.user_token}"}
@@ -113,6 +123,9 @@ class TestNotificationsSystem(unittest.TestCase):
 
         self.admin_token = create_access_token(data={"sub": self.admin.email, "role": self.admin.role})
         self.admin_headers = {"Authorization": f"Bearer {self.admin_token}"}
+
+        self.coach_token = create_access_token(data={"sub": self.coach.email, "role": self.coach.role})
+        self.coach_headers = {"Authorization": f"Bearer {self.coach_token}"}
 
     def tearDown(self):
         self.db.close()
@@ -562,6 +575,130 @@ class TestNotificationsSystem(unittest.TestCase):
         me_resp = self.client.get("/api/auth/me", headers=self.user_headers)
         self.assertEqual(me_resp.status_code, 200)
         self.assertEqual(me_resp.json()["phone_number"], "+18005550123")
+
+    def test_14_coach_to_user_notification_flow(self):
+        """Test Coach -> User notification dispatch, retrieval, unread count, and read status."""
+        coach_payload = {
+            "user_id": self.user.id,
+            "message": "Focus on 15 minutes of light cardio before your scheduled 07:00 wake-up alarm.",
+            "title": "Morning Routine Optimization",
+            "priority": "normal",
+            "action_url": "user/habits.html"
+        }
+
+        # 1. Coach sends recommendation notification
+        resp = self.client.post("/api/notifications/coach", json=coach_payload, headers=self.coach_headers)
+        self.assertEqual(resp.status_code, 201)
+        data = resp.json()
+        self.assertEqual(data["user_id"], self.user.id)
+        self.assertEqual(data["type"], "coach_recommendation")
+        self.assertEqual(data["title"], "Morning Routine Optimization")
+        self.assertIn("cardio", data["message"])
+        notif_id = data["id"]
+
+        # 2. Verify database record exists in PostgreSQL / SQLite
+        db_notif = self.db.query(Notification).filter(Notification.id == notif_id).first()
+        self.assertIsNotNone(db_notif)
+        self.assertEqual(db_notif.user_id, self.user.id)
+        self.assertEqual(db_notif.type, "coach_recommendation")
+        self.assertEqual(db_notif.reference_type, "coach")
+        self.assertEqual(db_notif.reference_id, str(self.coach.id))
+        self.assertFalse(db_notif.is_read)
+
+        # 3. Coach fetches dispatched history
+        history_resp = self.client.get("/api/notifications/coach/dispatched", headers=self.coach_headers)
+        self.assertEqual(history_resp.status_code, 200)
+        hist_data = history_resp.json()
+        self.assertGreaterEqual(hist_data["total"], 1)
+        self.assertEqual(hist_data["logs"][0]["patient_name"], "Alice Test")
+        self.assertEqual(hist_data["logs"][0]["patient_email"], "alice@test.com")
+
+        # 4. Target user logs in and fetches notifications
+        user_notifs_resp = self.client.get("/api/notifications/", headers=self.user_headers)
+        self.assertEqual(user_notifs_resp.status_code, 200)
+        user_notifs = user_notifs_resp.json()
+        self.assertGreaterEqual(user_notifs["unread_count"], 1)
+        found_coach_notif = any(n["id"] == notif_id for n in user_notifs["notifications"])
+        self.assertTrue(found_coach_notif)
+
+        # 5. Target user filters by type=coach
+        filter_resp = self.client.get("/api/notifications/?type=coach", headers=self.user_headers)
+        self.assertEqual(filter_resp.status_code, 200)
+        filtered_items = filter_resp.json()["notifications"]
+        self.assertTrue(any(n["id"] == notif_id for n in filtered_items))
+
+        # 6. Target user marks as read
+        read_resp = self.client.patch(f"/api/notifications/{notif_id}/read", headers=self.user_headers)
+        self.assertEqual(read_resp.status_code, 200)
+        self.assertTrue(read_resp.json()["is_read"])
+
+        # 7. Check persistence after refresh
+        self.db.expire_all()
+        refreshed_notif = self.db.query(Notification).filter(Notification.id == notif_id).first()
+        self.assertTrue(refreshed_notif.is_read)
+
+    def test_15_platform_announcements_audience_targeting_and_timezones(self):
+        """Test Admin Platform Announcements with audience role targeting, dates, and active filtering."""
+        # 1. Admin creates announcement targeted to normal users only
+        user_ann_payload = {
+            "title": "User Exclusive Feature",
+            "message": "New adaptive wake-up verification drills are now live.",
+            "priority": "high",
+            "target_role": "user",
+            "is_active": True
+        }
+        resp1 = self.client.post("/api/admin/announcements", json=user_ann_payload, headers=self.admin_headers)
+        self.assertEqual(resp1.status_code, 201)
+        self.assertEqual(resp1.json()["target_role"], "user")
+
+        # 2. Admin creates announcement targeted to coaches only
+        coach_ann_payload = {
+            "title": "Coach Portal Update",
+            "message": "New patient adherence telemetry tools enabled.",
+            "priority": "normal",
+            "target_role": "coach",
+            "is_active": True
+        }
+        resp2 = self.client.post("/api/admin/announcements", json=coach_ann_payload, headers=self.admin_headers)
+        self.assertEqual(resp2.status_code, 201)
+        self.assertEqual(resp2.json()["target_role"], "coach")
+
+        # 3. Admin creates announcement with future start_time (+2 days)
+        future_time = datetime.now(timezone.utc) + timedelta(days=2)
+        future_payload = {
+            "title": "Upcoming Maintenance",
+            "message": "Maintenance planned in 2 days.",
+            "priority": "low",
+            "target_role": "all",
+            "start_time": future_time.isoformat(),
+            "is_active": True
+        }
+        resp3 = self.client.post("/api/admin/announcements", json=future_payload, headers=self.admin_headers)
+        self.assertEqual(resp3.status_code, 201)
+
+        # 4. User fetches notifications
+        user_resp = self.client.get("/api/notifications/?type=announcement", headers=self.user_headers)
+        self.assertEqual(user_resp.status_code, 200)
+        user_announcements = user_resp.json()["notifications"]
+        titles = [n["title"] for n in user_announcements]
+
+        # Normal user SHOULD see "User Exclusive Feature"
+        self.assertTrue(any("User Exclusive Feature" in t for t in titles))
+        # Normal user SHOULD NOT see "Coach Portal Update"
+        self.assertFalse(any("Coach Portal Update" in t for t in titles))
+        # Normal user SHOULD NOT see future maintenance announcement
+        self.assertFalse(any("Upcoming Maintenance" in t for t in titles))
+
+        # 5. Coach fetches notifications
+        coach_resp = self.client.get("/api/notifications/?type=announcement", headers=self.coach_headers)
+        self.assertEqual(coach_resp.status_code, 200)
+        coach_announcements = coach_resp.json()["notifications"]
+        coach_titles = [n["title"] for n in coach_announcements]
+
+        # Coach SHOULD see "Coach Portal Update"
+        self.assertTrue(any("Coach Portal Update" in t for t in coach_titles))
+        # Coach SHOULD NOT see "User Exclusive Feature"
+        self.assertFalse(any("User Exclusive Feature" in t for t in coach_titles))
 
 
 if __name__ == "__main__":

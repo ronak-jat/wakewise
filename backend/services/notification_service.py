@@ -181,9 +181,18 @@ def _insert_notification_if_unique(
     return notif
 
 
+def _normalize_dt(dt: Optional[datetime]) -> Optional[datetime]:
+    """Safely normalizes datetime objects to timezone-aware UTC datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 # 1. Bedtime Reminders
 def _evaluate_bedtime_reminders(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.bedtime_reminders or prefs.preferred_channel == "disabled":
+    if not prefs.bedtime_reminders:
         return
 
     today_str = now.strftime("%Y-%m-%d")
@@ -241,7 +250,7 @@ def _evaluate_bedtime_reminders(db: Session, user: User, prefs: UserNotification
 
 # 2. Wake-Up Reminders
 def _evaluate_wakeup_reminders(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.wake_up_reminders or prefs.preferred_channel == "disabled":
+    if not prefs.wake_up_reminders:
         return
 
     today_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][now.weekday()]
@@ -300,7 +309,7 @@ def _evaluate_wakeup_reminders(db: Session, user: User, prefs: UserNotificationP
 
 # 3. Habit Alerts
 def _evaluate_habit_alerts(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.habit_alerts or prefs.preferred_channel == "disabled":
+    if not prefs.habit_alerts:
         return
 
     year_week_str = now.strftime("%Y-W%W")
@@ -378,7 +387,7 @@ def _evaluate_habit_alerts(db: Session, user: User, prefs: UserNotificationPrefe
 
 # 4. Challenge Reminders
 def _evaluate_challenge_reminders(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.challenge_reminders or prefs.preferred_channel == "disabled":
+    if not prefs.challenge_reminders:
         return
 
     today_str = now.strftime("%Y-%m-%d")
@@ -411,7 +420,7 @@ def _evaluate_challenge_reminders(db: Session, user: User, prefs: UserNotificati
 
 # 5. Progress Notifications
 def _evaluate_progress_notifications(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.progress_notifications or prefs.preferred_channel == "disabled":
+    if not prefs.progress_notifications:
         return
 
     today_str = now.strftime("%Y-%m-%d")
@@ -495,7 +504,7 @@ def _evaluate_progress_notifications(db: Session, user: User, prefs: UserNotific
 
 # 6. Platform Announcements Sync
 def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotificationPreference, now: datetime):
-    if not prefs.platform_announcements or prefs.preferred_channel == "disabled":
+    if not prefs.platform_announcements:
         return
 
     active_announcements = (
@@ -507,12 +516,29 @@ def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotific
 
     email_on = bool(prefs.announcement_email and prefs.preferred_channel in ("email", "both"))
     sms_on = bool(prefs.announcement_sms and prefs.preferred_channel in ("sms", "both"))
+    now_norm = _normalize_dt(now)
 
     for ann in active_announcements:
-        if ann.start_time and ann.start_time > now:
+        # Time window evaluation with timezone-safe normalization
+        start_norm = _normalize_dt(ann.start_time)
+        end_norm = _normalize_dt(ann.end_time)
+
+        if start_norm and start_norm > now_norm:
             continue
-        if ann.end_time and ann.end_time < now:
+        if end_norm and end_norm < now_norm:
             continue
+
+        # Target audience role check
+        target_role = getattr(ann, "target_role", "all") or "all"
+        target_role_lower = target_role.strip().lower()
+        if target_role_lower not in ("all", "*"):
+            user_role_upper = (user.role or "USER").upper()
+            if target_role_lower in ("user", "users") and "USER" not in user_role_upper:
+                continue
+            elif target_role_lower in ("coach", "wellness coach") and "COACH" not in user_role_upper:
+                continue
+            elif target_role_lower in ("admin", "administrator") and "ADMIN" not in user_role_upper:
+                continue
 
         dedup_key = f"user:{user.id}:announcement:{ann.id}"
         _insert_notification_if_unique(
@@ -531,7 +557,131 @@ def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotific
         )
 
 
-# 7. Scheduled Report Delivery Integration
+# 7. Coach Notification & Recommendation Dispatch
+def send_coach_notification(
+    db: Session,
+    coach_user: User,
+    user_id: int,
+    message: str,
+    title: Optional[str] = None,
+    priority: str = "normal",
+    action_url: Optional[str] = "user/habits.html",
+) -> Notification:
+    """
+    Dispatches personalized wellness coach recommendations/feedback directly to a target user.
+    Creates persistent PostgreSQL Notification record and dispatches via configured channels.
+    """
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise ValueError(f"Target user with ID {user_id} not found.")
+
+    coach_name = coach_user.name or "Wellness Coach"
+    notif_title = title.strip() if title and title.strip() else f"Coach Advice from {coach_name}"
+    notif_message = message.strip()
+    
+    prefs = get_or_create_user_preferences(db, target_user.id)
+    email_on = bool(getattr(prefs, "habit_email", True) and prefs.preferred_channel in ("email", "both"))
+    sms_on = bool(getattr(prefs, "habit_sms", False) and prefs.preferred_channel in ("sms", "both"))
+
+    now = datetime.now(timezone.utc)
+    email_status = None
+    sms_status = None
+    delivery_status = "delivered"
+
+    # Multi-channel delivery
+    if email_on and target_user.email:
+        email_res = send_email_notification(
+            to_email=target_user.email,
+            subject=f"[WakeWise AI] {notif_title}",
+            body_text=f"Hello {target_user.name},\n\nYour wellness coach {coach_name} has provided the following guidance:\n\n{notif_message}\n\nView details: {action_url or 'user/habits.html'}"
+        )
+        email_status = email_res.get("status", "unconfigured")
+    elif email_on:
+        email_status = "failed"
+
+    if sms_on and target_user.phone_number:
+        sms_res = send_sms_notification(
+            to_phone=target_user.phone_number,
+            message=f"WakeWise Coach {coach_name}: {notif_message[:140]}"
+        )
+        sms_status = sms_res.get("status", "unconfigured")
+    elif sms_on:
+        sms_status = "no_phone" if not target_user.phone_number else "failed"
+
+    if email_on and sms_on:
+        delivery_channel = "both"
+    elif email_on:
+        delivery_channel = "email"
+    elif sms_on:
+        delivery_channel = "sms"
+    else:
+        delivery_channel = "in_app"
+
+    notif = Notification(
+        user_id=target_user.id,
+        type="coach_recommendation",
+        title=notif_title,
+        message=notif_message,
+        priority=priority or "normal",
+        is_read=False,
+        reference_type="coach",
+        reference_id=str(coach_user.id),
+        action_url=action_url or "user/habits.html",
+        delivery_channel=delivery_channel,
+        delivery_status=delivery_status,
+        email_status=email_status,
+        sms_status=sms_status,
+        created_at=now,
+        sent_at=now,
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+    logger.info(f"Coach notification created: Coach ID={coach_user.id} -> User ID={target_user.id} (Notif ID={notif.id}, channel={delivery_channel})")
+    return notif
+
+
+def get_coach_dispatched_notifications(
+    db: Session,
+    coach_user: User,
+    limit: int = 50,
+) -> List[dict]:
+    """
+    Returns history of notifications/recommendations dispatched by this wellness coach.
+    """
+    coach_id_str = str(coach_user.id)
+    notifs = (
+        db.query(Notification, User)
+        .outerjoin(User, Notification.user_id == User.id)
+        .filter(
+            Notification.type.in_(["coach_recommendation", "coach"]),
+            Notification.reference_type == "coach",
+            Notification.reference_id == coach_id_str
+        )
+        .order_by(desc(Notification.created_at))
+        .limit(limit)
+        .all()
+    )
+
+    results = []
+    for n, u in notifs:
+        results.append({
+            "id": n.id,
+            "user_id": n.user_id,
+            "patient_name": u.name if u else f"User #{n.user_id}",
+            "patient_email": u.email if u else "N/A",
+            "title": n.title,
+            "message": n.message,
+            "delivery_channel": getattr(n, "delivery_channel", "in_app") or "in_app",
+            "delivery_status": getattr(n, "delivery_status", "delivered") or "delivered",
+            "is_read": bool(n.is_read),
+            "created_at": n.created_at.strftime("%Y-%m-%d %H:%M:%S") if n.created_at else None,
+            "time_ago": format_time_ago(n.created_at),
+        })
+    return results
+
+
+# 8. Scheduled Report Delivery Integration
 def dispatch_scheduled_report_notification(
     db: Session,
     user: User,
@@ -542,7 +692,7 @@ def dispatch_scheduled_report_notification(
     Sends scheduled report notifications via configured channels (Email, SMS link).
     """
     prefs = get_or_create_user_preferences(db, user.id)
-    if not prefs.report_delivery_enabled or prefs.preferred_channel == "disabled":
+    if not prefs.report_delivery_enabled:
         return None
 
     channel = prefs.report_delivery_channel or "email"
@@ -576,7 +726,7 @@ def dispatch_scheduled_report_notification(
 
 def broadcast_announcements_to_users(db: Session, now_dt: Optional[datetime] = None):
     """
-    Broadcasts all active announcements to all active users.
+    Broadcasts all active announcements to all active users immediately.
     """
     now = now_dt or datetime.now(timezone.utc)
     users = db.query(User).all()
@@ -587,7 +737,7 @@ def broadcast_announcements_to_users(db: Session, now_dt: Optional[datetime] = N
 
 def evaluate_user_notifications(db: Session, user: Any, now_dt: Optional[datetime] = None) -> List[Notification]:
     """
-    Evaluates real user data across all 6 notification categories.
+    Evaluates real user data across all notification categories.
     Idempotent and safe to run on every notification fetch and periodic scheduler loop.
     """
     if not user:
