@@ -31,12 +31,12 @@
 })();
 
 // Access centralized API Base URL from config.js
-const getApiBaseUrl = () => {
+function getApiBaseUrl() {
     if (typeof window !== 'undefined' && window.API_BASE_URL !== undefined) {
         return window.API_BASE_URL;
     }
     return '';
-};
+}
 
 
 
