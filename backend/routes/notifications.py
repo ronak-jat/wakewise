@@ -35,6 +35,7 @@ from services.delivery_service import (
     get_provider_status,
     validate_phone_number,
 )
+from services.coach_service import enforce_coach_user_access
 
 logger = logging.getLogger("routes.notifications")
 
@@ -107,14 +108,18 @@ def dispatch_coach_recommendation_notification(
     coach_user: User = Depends(get_current_coach_user),
 ):
     """
-    Sends personalized coach recommendation notification directly to a target user.
+    Sends personalized coach recommendation notification directly to an assigned target user.
     Requires Wellness Coach or Administrator authorization.
+    Enforces that Coaches can ONLY notify their assigned users (HTTP 403 otherwise).
     """
     if not payload.message or not payload.message.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Recommendation message content cannot be empty."
         )
+
+    # Enforce assignment boundary: Coach can ONLY send messages/notifications to their assigned users
+    enforce_coach_user_access(db, coach_user, payload.user_id)
 
     try:
         notif = send_coach_notification(
@@ -127,6 +132,8 @@ def dispatch_coach_recommendation_notification(
             action_url=payload.action_url or "user/habits.html",
         )
         return _map_notification(notif)
+    except HTTPException:
+        raise
     except ValueError as val_err:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -40,6 +40,8 @@ class User(Base):
     snooze_events = relationship("AlarmSnoozeEvent", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     notification_preferences = relationship("UserNotificationPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    coach_assigned_users = relationship("CoachUserAssignment", foreign_keys="[CoachUserAssignment.coach_id]", back_populates="coach", cascade="all, delete-orphan")
+    user_coach_assignments = relationship("CoachUserAssignment", foreign_keys="[CoachUserAssignment.user_id]", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', role='{self.role}')>"
@@ -264,5 +266,31 @@ class UserNotificationPreference(Base):
         return f"<UserNotificationPreference(user_id={self.user_id}, preferred_channel='{self.preferred_channel}', bedtime_email={self.bedtime_email}, wakeup_sms={self.wakeup_sms})>"
 
 
+class CoachUserAssignment(Base):
+    """
+    Coach-to-User Assignment Relationship:
+    Enforces strict access control and boundaries so coaches can ONLY view, monitor,
+    and message users explicitly assigned to them by an Administrator.
+    - id: Primary Key
+    - coach_id: Foreign Key to User (Role: Coach)
+    - user_id: Foreign Key to User (Role: User)
+    - assigned_at: Timestamp of assignment
+    - assigned_by: Foreign Key to User (Admin who created assignment)
+    - is_active: Active/Inactive state of assignment
+    """
+    __tablename__ = "coach_user_assignments"
 
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    coach_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    assigned_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
 
+    # Relationships
+    coach = relationship("User", foreign_keys=[coach_id], back_populates="coach_assigned_users")
+    user = relationship("User", foreign_keys=[user_id], back_populates="user_coach_assignments")
+    assigner = relationship("User", foreign_keys=[assigned_by])
+
+    def __repr__(self):
+        return f"<CoachUserAssignment(id={self.id}, coach_id={self.coach_id}, user_id={self.user_id}, is_active={self.is_active})>"

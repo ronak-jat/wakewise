@@ -79,6 +79,11 @@ def run_db_migrations():
         "ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS report_delivery_channel VARCHAR(20) DEFAULT 'email';",
         "ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS report_delivery_frequency VARCHAR(20) DEFAULT 'weekly';",
         "ALTER TABLE user_notification_preferences ADD COLUMN IF NOT EXISTS report_delivery_type VARCHAR(50) DEFAULT 'habit';",
+        "CREATE TABLE IF NOT EXISTS coach_user_assignments (id SERIAL PRIMARY KEY, coach_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL, is_active BOOLEAN NOT NULL DEFAULT TRUE);",
+        "CREATE INDEX IF NOT EXISTS ix_coach_user_assignments_coach_id ON coach_user_assignments (coach_id);",
+        "CREATE INDEX IF NOT EXISTS ix_coach_user_assignments_user_id ON coach_user_assignments (user_id);",
+        "CREATE INDEX IF NOT EXISTS ix_coach_user_assignments_is_active ON coach_user_assignments (is_active);",
+        "CREATE INDEX IF NOT EXISTS ix_coach_user_assignments_coach_user ON coach_user_assignments (coach_id, user_id);",
         "UPDATE alarms SET verification_method = 'multi_step', verification_steps = 3, required_accuracy = 67.0 WHERE verification_method IS NULL OR verification_method = '' OR verification_method = 'puzzle_completion' OR verification_steps <= 1;"
     ]
 

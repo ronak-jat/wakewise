@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from database import get_db, Base
 from models import (
     User, Alarm, ChallengeAttempt, AlarmSnoozeEvent,
-    Notification, PlatformAnnouncement, UserNotificationPreference
+    Notification, PlatformAnnouncement, UserNotificationPreference, CoachUserAssignment
 )
 from main import app
 from security import hash_password, create_access_token
@@ -578,6 +578,11 @@ class TestNotificationsSystem(unittest.TestCase):
 
     def test_14_coach_to_user_notification_flow(self):
         """Test Coach -> User notification dispatch, retrieval, unread count, and read status."""
+        # Ensure Coach is actively assigned to User
+        assign = CoachUserAssignment(coach_id=self.coach.id, user_id=self.user.id, is_active=True)
+        self.db.add(assign)
+        self.db.commit()
+
         coach_payload = {
             "user_id": self.user.id,
             "message": "Focus on 15 minutes of light cardio before your scheduled 07:00 wake-up alarm.",

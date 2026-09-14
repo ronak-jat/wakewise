@@ -16,7 +16,7 @@ from starlette.requests import Request
 
 from config import settings
 from database import engine, Base, run_db_migrations
-from routes import auth, alarms, challenges, analytics, dashboard, admin, notifications
+from routes import auth, alarms, challenges, analytics, dashboard, admin, notifications, coach
 from scheduler import start_scheduler_if_not_running, stop_scheduler_task
 from services.metrics_collector import metrics_collector
 
@@ -82,6 +82,7 @@ app.include_router(analytics.router)
 app.include_router(dashboard.router)
 app.include_router(admin.router)
 app.include_router(notifications.router)
+app.include_router(coach.router)
 
 
 @app.on_event("startup")

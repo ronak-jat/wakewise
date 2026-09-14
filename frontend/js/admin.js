@@ -56,6 +56,9 @@ window.switchTab = (tabId) => {
     if (tabId === 'tab-performance') {
         loadPerformanceMetrics(currentPerfPeriodDays, currentPerfStartDate, currentPerfEndDate);
     }
+    if (tabId === 'tab-coach-assignments') {
+        loadCoachAssignmentsOverview();
+    }
 
     document.body.classList.remove('sidebar-open');
 };
@@ -1634,7 +1637,246 @@ function renderDailyTrendChart(periodBreakdown) {
     });
 }
 
-// 13. Initial Startup
+// 14. Coach-User Assignments Management (Requirement 1 - Admin Cockpit)
+let coachAssignmentsData = null;
+let currentManagingCoachId = null;
+
+async function loadCoachAssignmentsOverview() {
+    const tbody = document.getElementById('coach-assignments-tbody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;"><i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Loading coach rosters from PostgreSQL...</td></tr>';
+    }
+
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/admin/coach-assignments?t=${Date.now()}`, {
+            headers: getAuthHeaders()
+        });
+        if (resp.ok) {
+            coachAssignmentsData = await resp.json();
+            renderCoachAssignmentsOverview(coachAssignmentsData);
+        } else {
+            console.error('Failed to fetch coach assignments:', resp.status);
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-danger); padding: 16px;">Failed to load coach assignments.</td></tr>';
+            }
+        }
+    } catch (e) {
+        console.error('Error fetching coach assignments:', e);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--color-danger); padding: 16px;">Error connecting to server.</td></tr>';
+        }
+    }
+}
+
+function renderCoachAssignmentsOverview(data) {
+    if (!data) return;
+
+    // Update KPI numbers
+    const totalCoachesEl = document.getElementById('stat-assignment-coaches');
+    const totalAssignedEl = document.getElementById('stat-assignment-assigned-users');
+    const totalUnassignedEl = document.getElementById('stat-assignment-unassigned-users');
+
+    if (totalCoachesEl) totalCoachesEl.textContent = data.total_coaches || 0;
+    if (totalAssignedEl) totalAssignedEl.textContent = data.total_assigned_users || 0;
+    if (totalUnassignedEl) totalUnassignedEl.textContent = data.total_unassigned_users || 0;
+
+    const tbody = document.getElementById('coach-assignments-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!data.coaches || data.coaches.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No registered coach accounts found. Change user roles to Wellness Coach in Users Console.</td></tr>';
+        return;
+    }
+
+    data.coaches.forEach(coach => {
+        const tr = document.createElement('tr');
+        const assignedCount = coach.assigned_count || 0;
+        const countBadge = assignedCount > 0 
+            ? `<span class="badge badge-success"><i class="fas fa-users" style="margin-right: 4px;"></i>${assignedCount} user${assignedCount > 1 ? 's' : ''}</span>`
+            : `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">0 users (Unassigned)</span>`;
+
+        tr.innerHTML = `
+            <td>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #6366f1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem;">
+                        ${(coach.name || coach.email || 'CO').substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                        <strong style="color: #fff;">${coach.name || 'Wellness Coach'}</strong>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">ID #${coach.id}</div>
+                    </div>
+                </div>
+            </td>
+            <td>${coach.email}</td>
+            <td><span class="badge badge-info">${coach.role}</span></td>
+            <td>${countBadge}</td>
+            <td style="text-align: right;">
+                <button class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8rem;" onclick="openManageCoachModal(${coach.id})">
+                    <i class="fas fa-user-edit" style="margin-right: 5px;"></i> Manage Roster
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+window.openManageCoachModal = (coachId) => {
+    currentManagingCoachId = coachId;
+    if (!coachAssignmentsData) return;
+
+    const coach = coachAssignmentsData.coaches.find(c => c.id === coachId);
+    if (!coach) return;
+
+    const titleEl = document.getElementById('manage-coach-title');
+    const subtitleEl = document.getElementById('manage-coach-subtitle');
+    const countEl = document.getElementById('modal-assigned-count');
+
+    if (titleEl) titleEl.textContent = `Manage Roster: ${coach.name || coach.email}`;
+    if (subtitleEl) subtitleEl.textContent = `Coach ID #${coach.id} • ${coach.email}`;
+    if (countEl) countEl.textContent = coach.assigned_count || 0;
+
+    // 1. Render currently assigned users
+    const assignedListEl = document.getElementById('modal-assigned-users-list');
+    if (assignedListEl) {
+        assignedListEl.innerHTML = '';
+        if (!coach.assigned_users || coach.assigned_users.length === 0) {
+            assignedListEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">No users currently assigned to this coach.</div>';
+        } else {
+            coach.assigned_users.forEach(u => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);';
+                item.innerHTML = `
+                    <div>
+                        <strong style="color: #fff; font-size: 0.9rem;">${u.name || 'User'}</strong>
+                        <span style="color: var(--text-secondary); font-size: 0.78rem; margin-left: 6px;">(${u.email})</span>
+                        <span class="badge badge-info" style="font-size: 0.7rem; margin-left: 6px;">Score: ${Math.round(u.habit_score || 0)}%</span>
+                    </div>
+                    <button class="btn btn-danger" style="padding: 3px 8px; font-size: 0.75rem;" onclick="removeUserFromCoach(${coach.id}, ${u.id})">
+                        <i class="fas fa-user-minus" style="margin-right: 4px;"></i> Remove
+                    </button>
+                `;
+                assignedListEl.appendChild(item);
+            });
+        }
+    }
+
+    // 2. Render available / unassigned users to assign
+    const availableListEl = document.getElementById('modal-available-users-list');
+    if (availableListEl) {
+        availableListEl.innerHTML = '';
+        const assignedIds = new Set((coach.assigned_users || []).map(u => u.id));
+        const assignableUsers = (coachAssignmentsData.available_users || []).filter(u => !assignedIds.has(u.id));
+
+        if (assignableUsers.length === 0) {
+            availableListEl.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 12px; text-align: center;">All platform users are already assigned to this coach.</div>';
+        } else {
+            assignableUsers.forEach(u => {
+                const item = document.createElement('div');
+                item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);';
+                const statusTag = u.current_coach_name 
+                    ? `<span class="badge badge-warning" style="font-size: 0.7rem; margin-left: 6px;">Currently with ${u.current_coach_name} (Will Reassign)</span>`
+                    : `<span class="badge badge-secondary" style="font-size: 0.7rem; margin-left: 6px;">Unassigned</span>`;
+
+                item.innerHTML = `
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; width: 100%;">
+                        <input type="checkbox" class="modal-assign-checkbox" value="${u.id}" style="cursor: pointer;">
+                        <div>
+                            <strong style="color: #fff; font-size: 0.88rem;">${u.name || 'User'}</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.78rem; margin-left: 4px;">(${u.email})</span>
+                            ${statusTag}
+                        </div>
+                    </label>
+                `;
+                availableListEl.appendChild(item);
+            });
+        }
+    }
+
+    const modal = document.getElementById('manage-coach-assignments-modal');
+    if (modal) modal.classList.add('active');
+};
+
+window.closeManageCoachModal = () => {
+    const modal = document.getElementById('manage-coach-assignments-modal');
+    if (modal) modal.classList.remove('active');
+    currentManagingCoachId = null;
+};
+
+window.removeUserFromCoach = async (coachId, userId) => {
+    if (!confirm(`Are you sure you want to unassign User #${userId} from this coach?`)) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/admin/coach-assignments/unassign`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                coach_id: coachId,
+                user_ids: [userId]
+            })
+        });
+
+        if (resp.ok) {
+            await loadCoachAssignmentsOverview();
+            openManageCoachModal(coachId);
+        } else {
+            const err = await resp.json();
+            alert(`Failed to unassign: ${err.detail || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('Error removing assignment:', e);
+        alert('Network error while unassigning user.');
+    }
+};
+
+window.submitCoachUserAssignments = async () => {
+    if (!currentManagingCoachId) return;
+
+    const checkboxes = document.querySelectorAll('.modal-assign-checkbox:checked');
+    const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+
+    if (selectedIds.length === 0) {
+        alert('Please check at least one user from the list to assign.');
+        return;
+    }
+
+    const btn = document.getElementById('modal-assign-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i> Assigning...';
+    }
+
+    try {
+        const resp = await fetch(`${window.API_BASE_URL}/api/admin/coach-assignments/assign`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                coach_id: currentManagingCoachId,
+                user_ids: selectedIds
+            })
+        });
+
+        if (resp.ok) {
+            await loadCoachAssignmentsOverview();
+            openManageCoachModal(currentManagingCoachId);
+        } else {
+            const err = await resp.json();
+            alert(`Failed to assign users: ${err.detail || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('Error submitting assignments:', e);
+        alert('Network error while creating assignments.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plus" style="margin-right: 6px;"></i> Assign Selected Users';
+        }
+    }
+};
+
+// 15. Initial Startup
 async function initAdminPanel() {
     if (typeof updateHeaderUserInfo === 'function') updateHeaderUserInfo();
     await renderAdminUsers();
@@ -1643,6 +1885,7 @@ async function initAdminPanel() {
     await loadAdminAnalytics();
     await loadAdminAnnouncements();
     await loadPerformanceMetrics(currentPerfPeriodDays);
+    await loadCoachAssignmentsOverview();
 }
 
 if (document.readyState === 'loading') {
@@ -1650,5 +1893,3 @@ if (document.readyState === 'loading') {
 } else {
     initAdminPanel();
 }
-
-

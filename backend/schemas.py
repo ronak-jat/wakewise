@@ -1068,4 +1068,74 @@ class AdminPerformanceMetricsResponse(BaseModel):
     system_metrics: SystemPerformanceMetrics
 
 
+# ============================================================================
+# Admin -> Coach -> User Assignment System Schemas
+# ============================================================================
 
+class CoachAssignedUserItem(BaseModel):
+    id: int
+    name: Optional[str] = None
+    email: str
+    role: str
+    target_bedtime: Optional[str] = None
+    target_wake_time: Optional[str] = None
+    inactivity_threshold_minutes: Optional[int] = 30
+    habit_score: Optional[float] = 0.0
+    sleep_quality_score: Optional[float] = None
+    wake_up_consistency: Optional[float] = None
+    recent_alarm_count: Optional[int] = 0
+    assigned_at: Optional[datetime] = None
+    assigned_by: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AvailableUserItem(BaseModel):
+    id: int
+    name: Optional[str] = None
+    email: str
+    role: str
+    current_coach_id: Optional[int] = None
+    current_coach_name: Optional[str] = None
+    habit_score: Optional[float] = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class CoachSummaryItem(BaseModel):
+    id: int
+    name: Optional[str] = None
+    email: str
+    role: str
+    assigned_count: int = 0
+    assigned_users: List[CoachAssignedUserItem] = []
+
+    class Config:
+        from_attributes = True
+
+
+class CoachAssignmentsOverviewResponse(BaseModel):
+    total_coaches: int
+    total_assigned_users: int
+    total_unassigned_users: int
+    coaches: List[CoachSummaryItem]
+    available_users: List[AvailableUserItem]
+
+
+class AssignUserRequest(BaseModel):
+    coach_id: int
+    user_ids: List[int]
+
+
+class UnassignUserRequest(BaseModel):
+    coach_id: int
+    user_ids: List[int]
+
+
+class AssignmentActionResponse(BaseModel):
+    status: str = "success"
+    message: str
+    assigned_count: int
+    affected_user_ids: List[int] = []

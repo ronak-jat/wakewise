@@ -28,6 +28,7 @@ from services.personalization_service import (
     ALLOWED_TYPES
 )
 from routes.analytics import build_behavioral_analytics
+from services.coach_service import enforce_coach_user_access, get_coach_assigned_user_ids
 from schemas import (
     DashboardOverviewResponse,
     AlarmHistoryResponse,
@@ -528,18 +529,35 @@ def get_challenge_performance(
     For coaches/admins, returns aggregate metrics across all active patients if user_id is not specified.
     """
     user_role = (current_user.role or "").upper()
-    if ("COACH" in user_role or "ADMIN" in user_role) and not user_id:
-        # Aggregate across all registered patients
+    if user_id:
+        enforce_coach_user_access(db, current_user, user_id)
+        attempts = (
+            db.query(ChallengeAttempt)
+            .filter(ChallengeAttempt.user_id == user_id)
+            .order_by(ChallengeAttempt.created_at.asc())
+            .all()
+        )
+    elif "ADMIN" in user_role:
+        # Admin aggregate across all users
         attempts = (
             db.query(ChallengeAttempt)
             .order_by(ChallengeAttempt.created_at.asc())
             .all()
         )
-    else:
-        target_id = user_id if (user_id and ("COACH" in user_role or "ADMIN" in user_role)) else current_user.id
+    elif "COACH" in user_role:
+        # Coach aggregate ONLY across assigned users
+        assigned_ids = get_coach_assigned_user_ids(db, current_user.id)
         attempts = (
             db.query(ChallengeAttempt)
-            .filter(ChallengeAttempt.user_id == target_id)
+            .filter(ChallengeAttempt.user_id.in_(assigned_ids))
+            .order_by(ChallengeAttempt.created_at.asc())
+            .all()
+        ) if assigned_ids else []
+    else:
+        # Standard user
+        attempts = (
+            db.query(ChallengeAttempt)
+            .filter(ChallengeAttempt.user_id == current_user.id)
             .order_by(ChallengeAttempt.created_at.asc())
             .all()
         )
@@ -1121,13 +1139,19 @@ def get_habit_analytics(
     target_user_id: Optional[int] = None
     target_name = "All Patients (Aggregate)"
 
-    if is_coach_or_admin:
-        if user_id and user_id > 0:
-            target_user = db.query(User).filter(User.id == user_id).first()
-            if not target_user:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
-            target_user_id = target_user.id
-            target_name = target_user.name or target_user.email
+    if user_id and user_id > 0:
+        enforce_coach_user_access(db, current_user, user_id)
+        target_user = db.query(User).filter(User.id == user_id).first()
+        if not target_user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
+        target_user_id = target_user.id
+        target_name = target_user.name or target_user.email
+    elif "ADMIN" in role_upper:
+        target_user_id = None
+        target_name = "All Patients (Aggregate)"
+    elif "COACH" in role_upper:
+        target_user_id = None
+        target_name = "My Assigned Patients (Aggregate)"
     else:
         target_user = current_user
         target_user_id = current_user.id
@@ -1168,9 +1192,14 @@ def get_habit_analytics(
             .all()
         )
     else:
-        # Aggregate across all registered patients
-        patients = db.query(User).filter(func.upper(User.role) == "USER").all() or db.query(User).all()
-        user_ids = [p.id for p in patients]
+        # Aggregate across users
+        if "COACH" in role_upper:
+            # Coach: aggregate ONLY over assigned users
+            user_ids = get_coach_assigned_user_ids(db, current_user.id)
+        else:
+            # Admin: aggregate across all registered patients
+            patients = db.query(User).filter(func.upper(User.role) == "USER").all() or db.query(User).all()
+            user_ids = [p.id for p in patients]
         alarms = db.query(Alarm).filter(Alarm.user_id.in_(user_ids)).all() if user_ids else []
         period_attempts = (
             db.query(ChallengeAttempt)

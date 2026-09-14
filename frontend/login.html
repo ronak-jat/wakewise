@@ -4,155 +4,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - WakeWise AI</title>
+    <title>Sign In — WakeWise AI Intelligent Cognitive Alarm Platform</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <!-- Official Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
-<body data-theme="dark" class="login-body">
+<body data-theme="dark" class="auth-page-body">
     <!-- Loader Mask -->
     <div id="loader-mask" class="loader-mask">
         <div class="spinner"></div>
         <p>INITIALIZING CLIENT PORTAL...</p>
     </div>
 
-    <div class="login-glow-1"></div>
-    <div class="login-glow-2"></div>
+    <!-- Ambient Background Lighting & Mesh -->
+    <div class="auth-ambient-glow auth-glow-1"></div>
+    <div class="auth-ambient-glow auth-glow-2"></div>
+    <div class="auth-mesh-grid"></div>
 
-    <div class="login-wrapper">
-        <div class="login-header">
-            <div class="logo">
-                <i class="fas fa-brain"></i>
-                <span>WakeWise <span class="grad-text">AI</span></span>
-            </div>
-            <p id="portal-desc">Access your cognitive workspace</p>
-        </div>
-
-        <!-- SEPARATE ROLE LOGIN TABS -->
-        <div class="role-tabs-container">
-            <button type="button" class="role-tab-btn active" data-role="user">
-                <i class="fas fa-user-graduate"></i> User / Student
-            </button>
-            <button type="button" class="role-tab-btn" data-role="coach">
-                <i class="fas fa-user-md"></i> Wellness Coach
-            </button>
-            <button type="button" class="role-tab-btn" data-role="admin">
-                <i class="fas fa-shield-alt"></i> Administrator
-            </button>
-        </div>
-
-        <!-- LOGIN FORM CONTAINER -->
-        <div id="login-container" class="glass-card primary-hover">
-            <h2 class="grad-text" id="login-title" style="text-align: center; margin-bottom: 20px; font-size: 1.5rem;">
-                User / Student Sign In</h2>
-
-            <form id="login-form" autocomplete="off">
-                <!-- Hidden role input driven by role tabs -->
-                <input type="hidden" id="login-role" value="user">
-
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label for="login-email">Email Address</label>
-                    <input type="email" id="login-email" class="form-control" placeholder="e.g., user@alarm.com"
-                        autocomplete="off" value="" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label for="login-password">Password</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="••••••••"
-                        autocomplete="new-password" value="" required>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                    Access Portal <i class="fas fa-sign-in-alt"></i>
-                </button>
-            </form>
-
-            <!-- Google OAuth Section (Hidden for Administrators) -->
-            <div id="google-oauth-wrapper">
-                <div
-                    style="margin: 16px 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
-                    <span
-                        style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Or
-                        Continue With</span>
-                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
-                </div>
-
-                <!-- Official Google Identity Services Render Container -->
-                <div id="google-button-container"
-                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 8px; min-height: 44px;">
-                </div>
-                <div style="text-align: center; margin-bottom: 16px;">
-                    <a id="google-redirect-link" href="#" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: underline; cursor: pointer;">
-                        <i class="fab fa-google" style="margin-right: 4px;"></i> Alternate Google Sign-In (Redirect Flow)
+    <!-- 2-Column Split SaaS Layout -->
+    <main class="auth-split-layout">
+        <!-- LEFT COLUMN: BRANDING & PRODUCT INTRODUCTION -->
+        <aside class="auth-brand-pane">
+            <div class="auth-brand-inner">
+                <!-- Top Brand Header -->
+                <div class="auth-brand-header">
+                    <a href="index.html" class="auth-logo-link" title="WakeWise AI Home">
+                        <div class="auth-logo-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="auth-logo-text">
+                            <span class="auth-logo-title">WakeWise <span class="grad-text">AI</span></span>
+                            <span class="auth-logo-sub">Intelligent Cognitive Platform</span>
+                        </div>
                     </a>
                 </div>
+
+                <!-- Main Hero Copy -->
+                <div class="auth-hero-copy">
+                    <div class="auth-badge-pill">
+                        <span class="auth-badge-dot"></span>
+                        <span>Circadian Science & Adaptive AI</span>
+                    </div>
+                    <h1 class="auth-hero-title">Wake up <span class="grad-text">smarter.</span></h1>
+                    <p class="auth-hero-desc">
+                        An intelligent alarm that adapts to your habits, challenges your mind, and helps you build better mornings.
+                    </p>
+                </div>
+
+                <!-- 3 Feature Highlights -->
+                <div class="auth-features-list">
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon-box primary">
+                            <i class="fas fa-puzzle-piece"></i>
+                        </div>
+                        <div class="auth-feature-content">
+                            <h4>Adaptive Cognitive Challenges</h4>
+                            <p>Multi-step math, logic, and memory puzzles calibrated to your morning sleep inertia.</p>
+                        </div>
+                    </div>
+
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon-box secondary">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="auth-feature-content">
+                            <h4>Smart Wake-Up Verification</h4>
+                            <p>Fail-safe anti-snooze protocols and physical awareness verification checks.</p>
+                        </div>
+                    </div>
+
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon-box accent">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="auth-feature-content">
+                            <h4>Personalized Habit Insights</h4>
+                            <p>Longitudinal circadian telemetry, snooze pattern analysis, and wellness scoring.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Telemetry & Security Footnote -->
+                <div class="auth-brand-footer">
+                    <div class="auth-trust-badge">
+                        <i class="fas fa-lock"></i>
+                        <span>Enterprise-grade AES-256 session protection</span>
+                    </div>
+                    <div class="auth-status-pill">
+                        <i class="fas fa-circle" style="font-size: 0.55rem;"></i>
+                        <span>99.8% System Uptime</span>
+                    </div>
+                </div>
             </div>
+        </aside>
 
-            <div class="form-toggle-prompt" id="register-prompt-wrapper">
-                Don't have an account? <a href="#" id="to-register-btn">Create one now</a>
+        <!-- RIGHT COLUMN: AUTHENTICATION CARD -->
+        <section class="auth-form-pane">
+            <div class="auth-card-wrapper">
+                <!-- Mobile Brand Header (Visible only on mobile/tablet) -->
+                <div class="auth-mobile-header">
+                    <a href="index.html" class="auth-logo-link">
+                        <div class="auth-logo-icon small">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <span class="auth-logo-title">WakeWise <span class="grad-text">AI</span></span>
+                    </a>
+                </div>
+
+                <!-- Role Selector Tabs -->
+                <div class="auth-role-tabs role-tabs-container">
+                    <button type="button" class="role-tab-btn active" data-role="user" id="role-tab-user">
+                        <i class="fas fa-user-graduate"></i>
+                        <span>User</span>
+                    </button>
+                    <button type="button" class="role-tab-btn" data-role="coach" id="role-tab-coach">
+                        <i class="fas fa-user-md"></i>
+                        <span>Coach</span>
+                    </button>
+                    <button type="button" class="role-tab-btn" data-role="admin" id="role-tab-admin">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Admin</span>
+                    </button>
+                </div>
+
+                <!-- LOGIN FORM CONTAINER -->
+                <div id="login-container" class="auth-card">
+                    <div class="auth-card-header">
+                        <h2 id="login-title">Welcome back</h2>
+                        <p id="portal-desc">Sign in to continue to WakeWise</p>
+                    </div>
+
+                    <!-- Inline Notification / Alert Message -->
+                    <div id="auth-alert" class="auth-alert" style="display: none;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span id="auth-alert-text"></span>
+                    </div>
+
+                    <form id="login-form" autocomplete="off">
+                        <!-- Hidden role input driven by role tabs -->
+                        <input type="hidden" id="login-role" value="user">
+
+                        <div class="auth-field-group">
+                            <label for="login-email" class="auth-field-label">Email Address</label>
+                            <div class="auth-input-wrapper">
+                                <i class="fas fa-envelope auth-input-icon"></i>
+                                <input type="email" id="login-email" class="auth-input" placeholder="e.g., user@alarm.com"
+                                    autocomplete="email" required>
+                            </div>
+                        </div>
+
+                        <div class="auth-field-group">
+                            <div class="auth-field-label-row">
+                                <label for="login-password" class="auth-field-label">Password</label>
+                                <a href="#" id="forgot-password-link" class="auth-forgot-link">Forgot password?</a>
+                            </div>
+                            <div class="auth-input-wrapper">
+                                <i class="fas fa-lock auth-input-icon"></i>
+                                <input type="password" id="login-password" class="auth-input" placeholder="••••••••"
+                                    autocomplete="current-password" required>
+                                <button type="button" class="password-toggle-btn" id="toggle-login-pass" title="Show or hide password" aria-label="Toggle password visibility">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="login-submit-btn" class="auth-submit-btn">
+                            <span class="btn-text">Sign In</span>
+                            <i class="fas fa-arrow-right btn-icon"></i>
+                        </button>
+                    </form>
+
+                    <!-- Google OAuth Section (Hidden for Administrators) -->
+                    <div id="google-oauth-wrapper" class="auth-oauth-section">
+                        <div class="auth-divider">
+                            <span>OR</span>
+                        </div>
+
+                        <!-- Official Google Identity Services Render Container -->
+                        <div id="google-button-container" class="google-btn-container"></div>
+
+                        <!-- Fallback / Direct Google Redirect Button -->
+                        <button type="button" id="google-redirect-link" class="auth-google-direct-btn">
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                            </svg>
+                            <span>Continue with Google</span>
+                        </button>
+                    </div>
+
+                    <!-- Register Toggle Prompt -->
+                    <div class="auth-toggle-prompt" id="register-prompt-wrapper">
+                        Don't have an account? <a href="#" id="to-register-btn">Sign up</a>
+                    </div>
+                </div>
+
+                <!-- REGISTRATION FORM CONTAINER (HIDDEN BY DEFAULT) -->
+                <div id="register-container" class="auth-card" style="display: none;">
+                    <div class="auth-card-header">
+                        <h2>Create Account</h2>
+                        <p>Join WakeWise to optimize your mornings</p>
+                    </div>
+
+                    <!-- Inline Notification / Alert Message -->
+                    <div id="reg-auth-alert" class="auth-alert" style="display: none;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span id="reg-auth-alert-text"></span>
+                    </div>
+
+                    <form id="register-form" autocomplete="off">
+                        <div class="auth-field-group">
+                            <label for="reg-name" class="auth-field-label">Full Name</label>
+                            <div class="auth-input-wrapper">
+                                <i class="fas fa-user auth-input-icon"></i>
+                                <input type="text" id="reg-name" class="auth-input" placeholder="e.g., Alex Mercer"
+                                    autocomplete="name" required>
+                            </div>
+                        </div>
+
+                        <div class="auth-field-group">
+                            <label for="reg-email" class="auth-field-label">Email Address</label>
+                            <div class="auth-input-wrapper">
+                                <i class="fas fa-envelope auth-input-icon"></i>
+                                <input type="email" id="reg-email" class="auth-input" placeholder="e.g., user@alarm.com"
+                                    autocomplete="email" required>
+                            </div>
+                        </div>
+
+                        <div class="auth-field-group">
+                            <label for="reg-password" class="auth-field-label">Password</label>
+                            <div class="auth-input-wrapper">
+                                <i class="fas fa-lock auth-input-icon"></i>
+                                <input type="password" id="reg-password" class="auth-input" placeholder="Minimum 6 characters"
+                                    minlength="6" autocomplete="new-password" required>
+                                <button type="button" class="password-toggle-btn" id="toggle-reg-pass" title="Show or hide password" aria-label="Toggle password visibility">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="reg-submit-btn" class="auth-submit-btn">
+                            <span class="btn-text">Create Account</span>
+                            <i class="fas fa-user-plus btn-icon"></i>
+                        </button>
+                    </form>
+
+                    <!-- Google OAuth Section for Registration -->
+                    <div id="google-oauth-register-wrapper" class="auth-oauth-section">
+                        <div class="auth-divider">
+                            <span>OR</span>
+                        </div>
+
+                        <div id="google-register-button-container" class="google-btn-container"></div>
+                    </div>
+
+                    <div class="auth-toggle-prompt">
+                        Already have an account? <a href="#" id="to-login-btn">Sign in</a>
+                    </div>
+                </div>
+
+                <!-- Footer & Security Badge -->
+                <div class="auth-card-footer">
+                    <p class="auth-security-note">
+                        <i class="fas fa-shield-alt"></i> Your account and personal data are securely protected.
+                    </p>
+                    <div class="auth-back-link">
+                        <a href="index.html"><i class="fas fa-arrow-left"></i> Back to Landing Page</a>
+                    </div>
+                </div>
             </div>
-        </div>
-
-        <!-- REGISTRATION FORM CONTAINER (HIDDEN BY DEFAULT) -->
-        <div id="register-container" class="glass-card secondary-hover" style="display: none;">
-            <h2 class="grad-text-secondary" style="text-align: center; margin-bottom: 20px; font-size: 1.5rem;">Register Account</h2>
-            <form id="register-form" autocomplete="off">
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label for="reg-name">Full Name</label>
-                    <input type="text" id="reg-name" class="form-control" placeholder="e.g., Alex Mercer"
-                        autocomplete="off" value="" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label for="reg-email">Email Address</label>
-                    <input type="email" id="reg-email" class="form-control" placeholder="e.g., user@alarm.com"
-                        autocomplete="off" value="" required>
-                </div>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label for="reg-password">Password</label>
-                    <input type="password" id="reg-password" class="form-control" placeholder="Minimum 6 characters"
-                        minlength="6" autocomplete="new-password" value="" required>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Create Account <i
-                        class="fas fa-user-plus"></i></button>
-            </form>
-
-            <!-- Google OAuth Section for Registration -->
-            <div id="google-oauth-register-wrapper">
-                <div
-                    style="margin: 16px 0; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
-                    <span
-                        style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Or
-                        Sign Up With</span>
-                    <span style="height: 1px; flex: 1; background: rgba(255,255,255,0.1);"></span>
-                </div>
-
-                <!-- Official Google Identity Services Register Button Container -->
-                <div id="google-register-button-container"
-                    style="width: 100%; display: flex; justify-content: center; margin-bottom: 16px; min-height: 44px;">
-                </div>
-            </div>
-
-            <div class="form-toggle-prompt">
-                Already registered? <a href="#" id="to-login-btn">Sign in here</a>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 20px;">
-            <a href="index.html" style="font-size: 0.85rem; color: var(--text-muted);"><i class="fas fa-arrow-left"></i>
-                Back to Landing Page</a>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <!-- Script Sources -->
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/auth.js?v=1.0.2"></script>
+    <script src="js/auth.js?v=1.0.3"></script>
     <script>
         // Google OAuth Configuration
         window.GOOGLE_CLIENT_ID = window.GOOGLE_CLIENT_ID || "1057786367809-mb9h4k6bjvcld420dpijgl6a038pcdjc.apps.googleusercontent.com";
+
+        // Helper to show inline alerts
+        function showInlineAlert(containerId, message, type = 'error') {
+            const alertEl = document.getElementById(containerId);
+            const textEl = document.getElementById(containerId + '-text');
+            if (!alertEl || !textEl) return;
+
+            textEl.textContent = message;
+            alertEl.className = 'auth-alert ' + (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : ''));
+            alertEl.style.display = 'flex';
+        }
+
+        function hideInlineAlert(containerId) {
+            const alertEl = document.getElementById(containerId);
+            if (alertEl) alertEl.style.display = 'none';
+        }
 
         // 1. Official Google Identity Services (GSI) Callback
         window.handleGoogleCredentialResponse = async function (response) {
@@ -201,9 +351,10 @@
                     } else {
                         window.location.href = getRelativePath('dashboard-user.html');
                     }
-                }, 1000);
+                }, 800);
             } else {
                 Toast.show('Google Sign-In Failed', result.message, 'danger');
+                showInlineAlert('auth-alert', result.message || 'Google Sign-In failed.');
             }
         };
 
@@ -221,7 +372,7 @@
                     google.accounts.id.renderButton(loginGoogleContainer, {
                         theme: "filled_blue",
                         size: "large",
-                        width: "320",
+                        width: "360",
                         type: "standard",
                         shape: "pill",
                         text: "continue_with"
@@ -233,7 +384,7 @@
                     google.accounts.id.renderButton(regGoogleContainer, {
                         theme: "filled_blue",
                         size: "large",
-                        width: "320",
+                        width: "360",
                         type: "standard",
                         shape: "pill",
                         text: "signup_with"
@@ -254,6 +405,9 @@
 
             const roleHiddenInput = document.getElementById('login-role');
 
+            const loginSubmitBtn = document.getElementById('login-submit-btn');
+            const regSubmitBtn = document.getElementById('reg-submit-btn');
+
             // Handle URL auth error notices
             const urlParams = new URLSearchParams(window.location.search);
             const authError = urlParams.get('error');
@@ -262,6 +416,7 @@
                 if (authError === 'admin_oauth_forbidden') errorMsg = 'Google Sign-In is disabled for Administrator accounts.';
                 if (authError === 'google_auth_failed') errorMsg = 'Google sign-in was canceled or encountered an issue.';
                 Toast.show('Authentication Notice', errorMsg, 'warning');
+                showInlineAlert('auth-alert', errorMsg, 'warning');
             }
 
             // Bind fallback Google OAuth redirect flow
@@ -275,9 +430,43 @@
                 });
             }
 
+            // Bind Password Visibility Toggles
+            const bindPasswordToggle = (toggleBtnId, inputId) => {
+                const toggleBtn = document.getElementById(toggleBtnId);
+                const input = document.getElementById(inputId);
+                if (!toggleBtn || !input) return;
+
+                toggleBtn.addEventListener('click', () => {
+                    const isPass = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', isPass ? 'text' : 'password');
+                    const icon = toggleBtn.querySelector('i');
+                    if (icon) {
+                        icon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+                    }
+                });
+            };
+
+            bindPasswordToggle('toggle-login-pass', 'login-password');
+            bindPasswordToggle('toggle-reg-pass', 'reg-password');
+
+            // Forgot Password helper
+            const forgotPassLink = document.getElementById('forgot-password-link');
+            if (forgotPassLink) {
+                forgotPassLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('login-email')?.value.trim();
+                    if (email) {
+                        Toast.show('Password Reset', `Password reset instructions will be sent to ${email} once confirmed.`, 'info', 4000);
+                    } else {
+                        Toast.show('Password Reset', 'Please enter your email address above to receive a password reset link.', 'info', 3500);
+                        document.getElementById('login-email')?.focus();
+                    }
+                });
+            }
 
             const roleTabs = document.querySelectorAll('.role-tab-btn');
             const loginTitle = document.getElementById('login-title');
+            const portalDesc = document.getElementById('portal-desc');
             const registerPromptWrapper = document.getElementById('register-prompt-wrapper');
             const emailInput = document.getElementById('login-email');
             const passwordInput = document.getElementById('login-password');
@@ -306,6 +495,8 @@
                 });
 
                 roleHiddenInput.value = role;
+                hideInlineAlert('auth-alert');
+                hideInlineAlert('reg-auth-alert');
 
                 // Clear input fields so nothing is prefilled when changing tabs
                 emailInput.value = '';
@@ -315,21 +506,24 @@
                 const googleWrapper = document.getElementById('google-oauth-wrapper');
 
                 if (role === 'user') {
-                    loginTitle.textContent = 'User / Student Sign In';
+                    loginTitle.textContent = 'Welcome back';
+                    portalDesc.textContent = 'Sign in to continue to WakeWise';
                     emailInput.placeholder = 'e.g., user@alarm.com';
-                    registerPromptWrapper.style.display = 'block';
+                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'block';
                     if (googleWrapper) googleWrapper.style.display = 'block';
                 } else if (role === 'coach') {
-                    loginTitle.textContent = 'Wellness Coach Sign In';
+                    loginTitle.textContent = 'Wellness Coach Portal';
+                    portalDesc.textContent = 'Sign in to manage assigned clients & regimens';
                     emailInput.placeholder = 'e.g., coach@alarm.com';
-                    registerPromptWrapper.style.display = 'none'; // Coaches cannot self-register; managed by Admin
+                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'none'; // Coaches cannot self-register; managed by Admin
                     if (googleWrapper) googleWrapper.style.display = 'block';
                     registerContainer.style.display = 'none';
                     loginContainer.style.display = 'block';
                 } else if (role === 'admin') {
-                    loginTitle.textContent = 'Administrator Portal Sign In';
+                    loginTitle.textContent = 'Administrator Portal';
+                    portalDesc.textContent = 'Sign in to access platform governance & analytics';
                     emailInput.placeholder = 'e.g., admin@alarm.com';
-                    registerPromptWrapper.style.display = 'none'; // Hide self-registration prompt for Admin
+                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'none'; // Hide self-registration prompt for Admin
                     if (googleWrapper) googleWrapper.style.display = 'none'; // Hide Google OAuth for Admin
                     registerContainer.style.display = 'none';
                     loginContainer.style.display = 'block';
@@ -344,7 +538,6 @@
                     // Ensure login view is visible when switching tabs
                     registerContainer.style.display = 'none';
                     loginContainer.style.display = 'block';
-                    document.getElementById('portal-desc').textContent = 'Access your cognitive workspace';
                 });
             });
 
@@ -355,10 +548,11 @@
                 regNameInput.value = '';
                 regEmailInput.value = '';
                 regPasswordInput.value = '';
+                hideInlineAlert('auth-alert');
+                hideInlineAlert('reg-auth-alert');
 
                 loginContainer.style.display = 'none';
                 registerContainer.style.display = 'block';
-                document.getElementById('portal-desc').textContent = 'Join the cognitive wellness network';
             });
 
             toLoginBtn.addEventListener('click', (e) => {
@@ -366,10 +560,11 @@
                 loginForm.reset();
                 emailInput.value = '';
                 passwordInput.value = '';
+                hideInlineAlert('auth-alert');
+                hideInlineAlert('reg-auth-alert');
 
                 registerContainer.style.display = 'none';
                 loginContainer.style.display = 'block';
-                document.getElementById('portal-desc').textContent = 'Access your cognitive workspace';
             });
 
             // 3. Parse Query Params to Pre-select Role or Mode
@@ -385,19 +580,32 @@
             if (mode === 'register') {
                 loginContainer.style.display = 'none';
                 registerContainer.style.display = 'block';
-                document.getElementById('portal-desc').textContent = 'Join the cognitive wellness network';
             }
 
             // 4. Form Submissions powered strictly by PostgreSQL & FastAPI Backend API
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                hideInlineAlert('auth-alert');
+
                 const email = emailInput.value.trim();
                 const pass = passwordInput.value.trim();
+
+                if (!email || !pass) {
+                    showInlineAlert('auth-alert', 'Please provide both email and password.');
+                    return;
+                }
+
+                // Set loading state
+                if (loginSubmitBtn) {
+                    loginSubmitBtn.disabled = true;
+                    loginSubmitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> <span>Signing in...</span>';
+                }
 
                 const result = await attemptLoginAsync(email, pass);
 
                 if (result.success) {
                     Toast.show('Welcome Back', result.message, 'success');
+                    showInlineAlert('auth-alert', 'Authenticated successfully! Redirecting...', 'success');
 
                     const loader = document.getElementById('loader-mask');
                     if (loader) {
@@ -414,23 +622,46 @@
                         } else {
                             window.location.href = getRelativePath('dashboard-user.html');
                         }
-                    }, 1000);
+                    }, 800);
                 } else {
+                    if (loginSubmitBtn) {
+                        loginSubmitBtn.disabled = false;
+                        loginSubmitBtn.innerHTML = '<span class="btn-text">Sign In</span> <i class="fas fa-arrow-right btn-icon"></i>';
+                    }
                     Toast.show('Access Denied', result.message, 'danger');
+                    showInlineAlert('auth-alert', result.message || 'Invalid email or password.');
                 }
             });
 
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                hideInlineAlert('reg-auth-alert');
+
                 const name = regNameInput.value.trim();
                 const email = regEmailInput.value.trim();
                 const pass = regPasswordInput.value.trim();
                 const role = roleHiddenInput.value || 'USER';
 
+                if (!name || !email || !pass) {
+                    showInlineAlert('reg-auth-alert', 'Please fill in all required registration fields.');
+                    return;
+                }
+
+                if (pass.length < 6) {
+                    showInlineAlert('reg-auth-alert', 'Password must be at least 6 characters long.');
+                    return;
+                }
+
+                if (regSubmitBtn) {
+                    regSubmitBtn.disabled = true;
+                    regSubmitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> <span>Creating account...</span>';
+                }
+
                 const result = await registerUserAsync(name, email, pass, role);
 
                 if (result.success) {
                     Toast.show('Registered!', result.message, 'success');
+                    showInlineAlert('reg-auth-alert', 'Account created! Redirecting to login...', 'success');
                     registerForm.reset();
                     loginForm.reset();
                     emailInput.value = '';
@@ -439,10 +670,19 @@
                     setTimeout(() => {
                         registerContainer.style.display = 'none';
                         loginContainer.style.display = 'block';
-                        document.getElementById('portal-desc').textContent = 'Access your cognitive workspace';
+                        if (regSubmitBtn) {
+                            regSubmitBtn.disabled = false;
+                            regSubmitBtn.innerHTML = '<span class="btn-text">Create Account</span> <i class="fas fa-user-plus btn-icon"></i>';
+                        }
+                        showInlineAlert('auth-alert', 'Registration complete. Please sign in with your credentials.', 'success');
                     }, 1000);
                 } else {
+                    if (regSubmitBtn) {
+                        regSubmitBtn.disabled = false;
+                        regSubmitBtn.innerHTML = '<span class="btn-text">Create Account</span> <i class="fas fa-user-plus btn-icon"></i>';
+                    }
                     Toast.show('Registration Failed', result.message, 'warning');
+                    showInlineAlert('reg-auth-alert', result.message || 'Registration could not be completed.');
                 }
             });
         });

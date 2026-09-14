@@ -15,6 +15,11 @@ from services.habit_score_service import calculate_habit_score_snapshot
 from services.personalization_service import ALLOWED_TYPES, DIFFICULTY_LEVELS
 from services.performance_metrics_service import calculate_performance_metrics
 from services.notification_service import broadcast_announcements_to_users
+from services.coach_service import (
+    get_all_coach_assignments_overview,
+    assign_user_to_coach,
+    unassign_user_from_coach,
+)
 from schemas import (
     AdminDashboardResponse,
     AdminUserItem,
@@ -31,6 +36,10 @@ from schemas import (
     AnnouncementResponse,
     AnnouncementListResponse,
     AdminPerformanceMetricsResponse,
+    CoachAssignmentsOverviewResponse,
+    AssignUserRequest,
+    UnassignUserRequest,
+    AssignmentActionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -857,3 +866,96 @@ def get_admin_performance_metrics(
     )
 
 
+# ============================================================================
+# Admin Coach-User Assignment Cockpit Endpoints
+# ============================================================================
+
+@router.get("/coach-assignments", response_model=CoachAssignmentsOverviewResponse, summary="Get all coaches and user assignments")
+def get_coach_assignments(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin_user),
+):
+    """
+    Returns full coach-user assignment matrix for Admin management.
+    Includes all coaches with their assigned patient lists and available normal users.
+    Requires server-side Administrator privileges.
+    """
+    return get_all_coach_assignments_overview(db)
+
+
+@router.post("/coach-assignments/assign", response_model=AssignmentActionResponse, summary="Assign users to a coach")
+def assign_users_to_coach_endpoint(
+    payload: AssignUserRequest,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin_user),
+):
+    """
+    Assigns one or more users to a specific coach.
+    Reassigns automatically if user was actively assigned to another coach.
+    Requires server-side Administrator privileges.
+    """
+    if not payload.user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must provide at least one user ID to assign."
+        )
+
+    assigned_count = 0
+    affected_ids = []
+
+    for uid in payload.user_ids:
+        assign_user_to_coach(
+            db=db,
+            coach_id=payload.coach_id,
+            user_id=uid,
+            admin_id=admin_user.id
+        )
+        assigned_count += 1
+        affected_ids.append(uid)
+
+    coach = db.query(User).filter(User.id == payload.coach_id).first()
+    coach_name = coach.name if coach else f"Coach #{payload.coach_id}"
+
+    return AssignmentActionResponse(
+        status="success",
+        message=f"Successfully assigned {assigned_count} user(s) to coach '{coach_name}'.",
+        assigned_count=assigned_count,
+        affected_user_ids=affected_ids
+    )
+
+
+@router.post("/coach-assignments/unassign", response_model=AssignmentActionResponse, summary="Unassign users from a coach")
+def unassign_users_from_coach_endpoint(
+    payload: UnassignUserRequest,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin_user),
+):
+    """
+    Removes the active assignment of one or more users from a coach.
+    Requires server-side Administrator privileges.
+    """
+    if not payload.user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must provide at least one user ID to unassign."
+        )
+
+    unassigned_count = 0
+    affected_ids = []
+
+    for uid in payload.user_ids:
+        success = unassign_user_from_coach(
+            db=db,
+            coach_id=payload.coach_id,
+            user_id=uid
+        )
+        if success:
+            unassigned_count += 1
+            affected_ids.append(uid)
+
+    return AssignmentActionResponse(
+        status="success",
+        message=f"Successfully unassigned {unassigned_count} user(s) from coach #{payload.coach_id}.",
+        assigned_count=unassigned_count,
+        affected_user_ids=affected_ids
+    )

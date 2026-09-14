@@ -4,15 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Dashboard - WakeWise AI</title>
+    <title>User Dashboard — WakeWise AI</title>
     <!-- CSS Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../css/style.css">
-
 </head>
 
 <body data-theme="dark">
-    <!-- Audio element properly placed within body -->
+    <!-- Audio element for alarm tone playback -->
     <audio id="alarm-audio" loop preload="auto">
         <source src="../assets/sounds/radar.mp3" type="audio/mpeg">
         <source src="/assets/sounds/radar.mp3" type="audio/mpeg">
@@ -30,9 +29,9 @@
             <div class="sidebar-brand">
                 <div class="logo">
                     <i class="fas fa-brain"></i>
-                    <span>WakeWise AI</span>
+                    <span>WakeWise <span class="grad-text">AI</span></span>
                 </div>
-                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar">
+                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Toggle Sidebar" aria-label="Toggle Sidebar">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
@@ -59,7 +58,7 @@
             </ul>
 
             <div class="sidebar-footer">
-                <button id="logout-btn" class="btn btn-danger" style="width: 100%; padding: 10px;">
+                <button id="logout-btn" class="btn btn-danger" style="width: 100%; padding: 10px 14px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; border-radius: 10px;">
                     <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
                 </button>
             </div>
@@ -70,7 +69,9 @@
             <!-- Top Navigation Bar -->
             <header class="db-navbar">
                 <div class="db-nav-left">
-                    <button id="mobile-nav-toggle" class="mobile-nav-toggle"><i class="fas fa-bars"></i></button>
+                    <button id="mobile-nav-toggle" class="mobile-nav-toggle" title="Open Navigation Menu" aria-label="Open Navigation Menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
                     <div class="db-breadcrumb">
                         <a href="#">Portal</a>
                         <span class="separator">/</span>
@@ -117,13 +118,9 @@
                             <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="dropdown-menu" id="profile-dropdown">
-                            <div class="dropdown-item" onclick="switchTab('tab-profile')"><i class="fas fa-user"></i> My
-                                Profile</div>
-                            <div class="dropdown-item" onclick="switchTab('tab-notifications')"><i
-                                    class="fas fa-bell"></i> Notifications</div>
-                            <div class="dropdown-item logout-trigger"
-                                style="color: var(--color-danger); border-top: 1px solid var(--glass-border);"><i
-                                    class="fas fa-sign-out-alt"></i> Sign Out</div>
+                            <div class="dropdown-item" onclick="switchTab('tab-profile')"><i class="fas fa-user"></i> My Profile</div>
+                            <div class="dropdown-item" onclick="switchTab('tab-notifications')"><i class="fas fa-bell"></i> Notifications</div>
+                            <div class="dropdown-item logout-trigger" style="color: var(--color-danger); border-top: 1px solid var(--glass-border);"><i class="fas fa-sign-out-alt"></i> Sign Out</div>
                         </div>
                     </div>
                 </div>
@@ -145,8 +142,8 @@
                         </div>
                     </div>
 
-                    <!-- Stats Grid: Real PostgreSQL Data -->
-                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px;">
+                    <!-- Primary Operational Stats Grid -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px;">
                         <div class="glass-card primary-hover stat-card">
                             <div class="stat-icon primary"><i class="fas fa-clock"></i></div>
                             <div class="stat-details">
@@ -189,6 +186,10 @@
                                 <p>Wakeup Streak</p>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Secondary Circadian & Quality Metrics Grid -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px;">
                         <div class="glass-card primary-hover stat-card">
                             <div class="stat-icon primary"><i class="fas fa-sun"></i></div>
                             <div class="stat-details">
@@ -226,26 +227,25 @@
                         </div>
                     </div>
 
-
                     <!-- AI Adaptive Next Alarm Recommendation Banner -->
-                    <div style="background: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 16px 20px; border-left: 4px solid var(--primary); margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                    <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.05)); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 14px; padding: 16px 20px; border-left: 4px solid var(--color-primary); margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
                         <div style="display: flex; align-items: center; gap: 14px;">
-                            <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.4); display: flex; align-items: center; justify-content: center; color: #d8b4fe; font-size: 1.2rem;">
+                            <div style="width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #a855f7); display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 1.15rem; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);">
                                 <i class="fas fa-magic"></i>
                             </div>
                             <div>
-                                <h4 style="margin: 0; font-size: 1rem; color: #fff;">Next Alarm AI Recommendation</h4>
+                                <h4 style="margin: 0; font-size: 1rem; color: #ffffff; font-weight: 700;">Next Alarm AI Recommendation</h4>
                                 <p style="margin: 3px 0 0; font-size: 0.85rem; color: var(--text-secondary);" id="dashboard-adaptive-tip">
                                     Analyzing your wake-up patterns and cognitive performance...
                                 </p>
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="switchTab('tab-analytics')" style="padding: 6px 12px; font-size: 0.8rem;">
-                                <i class="fas fa-chart-line"></i> View Analytics
+                            <button class="btn btn-secondary" onclick="switchTab('tab-analytics')" style="padding: 7px 14px; font-size: 0.8rem; border-radius: 8px;">
+                                <i class="fas fa-chart-line" style="margin-right: 4px;"></i> View Analytics
                             </button>
-                            <button class="btn btn-primary" onclick="switchTab('tab-alarms')" style="padding: 6px 12px; font-size: 0.8rem;">
-                                <i class="fas fa-clock"></i> My Alarms
+                            <button class="btn btn-primary" onclick="switchTab('tab-alarms')" style="padding: 7px 14px; font-size: 0.8rem; border-radius: 8px;">
+                                <i class="fas fa-clock" style="margin-right: 4px;"></i> My Alarms
                             </button>
                         </div>
                     </div>
@@ -260,10 +260,10 @@
                                     <span style="font-size: 0.78rem; color: var(--text-secondary);">Showing top 3 active wakeup schedules</span>
                                 </div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <button class="btn btn-secondary" id="test-audio-btn" onclick="window.testAlarmSound()" style="padding: 4px 10px; font-size: 0.75rem;" title="Test alarm sound & initialize audio permissions">
+                                    <button class="btn btn-secondary" id="test-audio-btn" onclick="window.testAlarmSound()" style="padding: 5px 12px; font-size: 0.75rem; border-radius: 8px;" title="Test alarm sound & initialize audio permissions">
                                         <i class="fas fa-volume-up" style="margin-right: 4px;"></i> Test Sound
                                     </button>
-                                    <button class="btn btn-secondary" onclick="switchTab('tab-alarms')" style="padding: 4px 10px; font-size: 0.75rem;">
+                                    <button class="btn btn-secondary" onclick="switchTab('tab-alarms')" style="padding: 5px 12px; font-size: 0.75rem; border-radius: 8px;">
                                         Manage All <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
                                     </button>
                                 </div>
@@ -280,7 +280,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <!-- Will populate dynamically -->
+                                        <!-- Populated dynamically via JS -->
                                     </tbody>
                                 </table>
                             </div>
@@ -288,28 +288,28 @@
 
                         <!-- Quick Actions Console -->
                         <div class="glass-card accent-hover">
-                            <h3 style="margin-bottom: 20px; font-size: 1.15rem;"><i class="fas fa-bolt grad-text"></i> Quick Actions</h3>
+                            <h3 style="margin-bottom: 18px; font-size: 1.15rem;"><i class="fas fa-bolt grad-text"></i> Quick Actions</h3>
                             <div class="action-panel-list">
                                 <div class="action-card" onclick="Modal.open('add-alarm-modal')">
                                     <div class="action-info">
                                         <h4>Add New Alarm</h4>
-                                        <p>Create a custom wake trigger with cognitive challenge</p>
+                                        <p>Create a custom wake trigger with cognitive challenges</p>
                                     </div>
-                                    <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-plus"></i></button>
+                                    <button class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 8px;"><i class="fas fa-plus"></i></button>
                                 </div>
                                 <div class="action-card" onclick="switchTab('tab-habits')">
                                     <div class="action-info">
                                         <h4>Habit Tracker</h4>
                                         <p>Inspect Habit Score breakdown and sleep routine</p>
                                     </div>
-                                    <button class="btn btn-accent" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-tasks"></i></button>
+                                    <button class="btn btn-accent" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 8px;"><i class="fas fa-tasks"></i></button>
                                 </div>
                                 <div class="action-card" onclick="switchTab('tab-analytics')">
                                     <div class="action-info">
                                         <h4>Cognitive Analytics</h4>
                                         <p>Inspect wake trends, domain mastery, and insights</p>
                                     </div>
-                                    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"><i class="fas fa-chart-line"></i></button>
+                                    <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem; border-radius: 8px;"><i class="fas fa-chart-line"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -326,11 +326,11 @@
                                 <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.85rem;">Configure cognitive wakeup alarms, difficulty levels, and multi-step verification.</p>
                             </div>
                             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                <button class="btn btn-secondary" id="test-audio-alarms-btn" onclick="window.testAlarmSound()" title="Test alarm sound & initialize audio permissions">
+                                <button class="btn btn-secondary" id="test-audio-alarms-btn" onclick="window.testAlarmSound()" title="Test alarm sound & initialize audio permissions" style="padding: 7px 14px; font-size: 0.82rem; border-radius: 8px;">
                                     <i class="fas fa-volume-up" style="margin-right: 4px;"></i> Test Sound
                                 </button>
-                                <button class="btn btn-primary" onclick="Modal.open('add-alarm-modal')">
-                                    <i class="fas fa-plus"></i> Set New Alarm
+                                <button class="btn btn-primary" onclick="Modal.open('add-alarm-modal')" style="padding: 7px 16px; font-size: 0.82rem; border-radius: 8px;">
+                                    <i class="fas fa-plus" style="margin-right: 4px;"></i> Set New Alarm
                                 </button>
                             </div>
                         </div>
@@ -348,50 +348,6 @@
                                 </thead>
                                 <tbody>
                                     <!-- Populated in user.js -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Alarm & Wake-Up History Table with Date Filters -->
-                    <div class="glass-card success-hover" style="margin-bottom: 24px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-                            <div>
-                                <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-history grad-text"></i> Alarm & Wake-Up History</h3>
-                                <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.8rem;">Historical records of scheduled vs actual wake times and verification outcomes.</p>
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                                <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 8px;">
-                                    <button class="btn btn-secondary" id="history-filter-today" onclick="filterAlarmHistory('today')" style="padding: 4px 10px; font-size: 0.75rem;">Today</button>
-                                    <button class="btn btn-primary" id="history-filter-7d" onclick="filterAlarmHistory('7days')" style="padding: 4px 10px; font-size: 0.75rem;">Last 7 Days</button>
-                                    <button class="btn btn-secondary" id="history-filter-30d" onclick="filterAlarmHistory('30days')" style="padding: 4px 10px; font-size: 0.75rem;">Last 30 Days</button>
-                                </div>
-                                <div style="display: flex; gap: 4px; align-items: center;">
-                                    <input type="date" id="history-start-date" class="form-control" style="padding: 3px 6px; font-size: 0.75rem; width: 120px;">
-                                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
-                                    <input type="date" id="history-end-date" class="form-control" style="padding: 3px 6px; font-size: 0.75rem; width: 120px;">
-                                    <button class="btn btn-primary" onclick="applyCustomHistoryFilter()" style="padding: 4px 8px; font-size: 0.75rem;">Filter</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="custom-table" id="db-alarm-history-table">
-                                <thead>
-                                    <tr>
-                                        <th>Alarm Label</th>
-                                        <th>Scheduled</th>
-                                        <th>Trigger Time</th>
-                                        <th>Actual Wake</th>
-                                        <th>Status</th>
-                                        <th>Snoozes</th>
-                                        <th>Verification</th>
-                                        <th>Wakefulness</th>
-                                        <th>Challenge Score</th>
-                                        <th>Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="db-alarm-history-tbody">
-                                    <!-- Populated dynamically via JS -->
                                 </tbody>
                             </table>
                         </div>
@@ -658,6 +614,53 @@
                         </div>
                     </div>
 
+                    <!-- BEHAVIORAL ANALYTICS -->
+                    <div class="glass-card accent-hover" style="margin-bottom: 24px; border: 1px solid rgba(56, 189, 248, 0.35); background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(99, 102, 241, 0.05)); box-shadow: 0 8px 32px rgba(0,0,0,0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #6366f1); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);">
+                                    <i class="fas fa-user-clock" style="font-size: 1.1rem;"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-user-clock grad-text"></i> Behavioral Analytics</h3>
+                                    <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.82rem;">Patterns derived from wake-up behavior, snooze cadence, and challenge outcomes.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px;">
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(14, 165, 233, 0.12); color: #38bdf8;"><i class="fas fa-clock"></i></div>
+                                <div class="stat-info"><span class="stat-label">Wake-Up Consistency</span><h3 class="stat-value" id="db-behavior-consistency">0%</h3></div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(168,85,247,0.15); color: var(--primary);"><i class="fas fa-bed"></i></div>
+                                <div class="stat-info"><span class="stat-label">Average Snoozes</span><h3 class="stat-value" id="db-behavior-snoozes">0.0</h3></div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(34,197,94,0.15); color: #22c55e;"><i class="fas fa-star"></i></div>
+                                <div class="stat-info"><span class="stat-label">Avg Wakefulness</span><h3 class="stat-value" id="db-behavior-wakefulness">0.0/5</h3></div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;"><i class="fas fa-sun"></i></div>
+                                <div class="stat-info"><span class="stat-label">Average Wake Time</span><h3 class="stat-value" id="db-behavior-wake-time">--:--</h3></div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon" style="background: rgba(239,68,68,0.15); color: #ef4444;"><i class="fas fa-fire"></i></div>
+                                <div class="stat-info"><span class="stat-label">Current Streak</span><h3 class="stat-value" id="db-behavior-streak">0 days</h3></div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" class="dashboard-grid">
+                            <div class="glass-card" style="background: rgba(15, 23, 42, 0.35); border: 1px solid var(--glass-border); padding: 14px 16px;">
+                                <h4 style="margin: 0 0 10px; font-size: 0.95rem; color: #38bdf8;"><i class="fas fa-chart-pie" style="margin-right: 6px;"></i> Behavioral Patterns</h4>
+                                <ul id="db-behavior-patterns-list" style="margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.8; font-size: 0.85rem;"></ul>
+                            </div>
+                            <div class="glass-card" style="background: rgba(15, 23, 42, 0.35); border: 1px solid var(--glass-border); padding: 14px 16px;">
+                                <h4 style="margin: 0 0 10px; font-size: 0.95rem; color: #fbbf24;"><i class="fas fa-lightbulb" style="margin-right: 6px;"></i> Behavioral Insights</h4>
+                                <ul id="db-behavior-insights-list" style="margin: 0; padding-left: 18px; color: var(--text-secondary); line-height: 1.8; font-size: 0.85rem;"></ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- WAKE-UP STATISTICS & TRENDS LINE CHART -->
                     <div class="glass-card primary-hover" style="margin-bottom: 24px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
@@ -784,7 +787,7 @@
                                     <!-- Rendered dynamically by updateHeaderUserInfo -->
                                 </div>
                                 <label for="profile-pic-input"
-                                    style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 0.85rem; border: 2px solid #1a1e2e; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"
+                                    style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; background: var(--color-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-size: 0.85rem; border: 2px solid #1a1e2e; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"
                                     title="Upload Profile Picture">
                                     <i class="fas fa-camera"></i>
                                 </label>
@@ -804,7 +807,7 @@
 
                         <form id="profile-settings-form">
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label for="profile-name"><i class="fas fa-user" style="color: var(--primary); margin-right: 6px;"></i> Full Name</label>
+                                <label for="profile-name"><i class="fas fa-user" style="color: var(--color-primary); margin-right: 6px;"></i> Full Name</label>
                                 <input type="text" id="profile-name" class="form-control" placeholder="Enter your full name" required>
                             </div>
                             <div class="form-group" style="margin-bottom: 16px;">
@@ -890,7 +893,7 @@
         </div>
     </div>
 
-    <!-- MODAL: ADD ALARM -->
+    <!-- MODAL: ADD / EDIT ALARM -->
     <div id="add-alarm-modal" class="modal-overlay">
         <div class="modal-container" style="max-width: 500px;">
             <div class="modal-header">
@@ -922,32 +925,25 @@
                     <div id="custom-days-container" class="form-group" style="margin-bottom: 16px; display: none;">
                         <label>Repeat Days</label>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Mon"> Mon
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Tue"> Tue
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Wed"> Wed
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Thu"> Thu
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Fri"> Fri
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Sat"> Sat
                             </label>
-                            <label
-                                style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
+                            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; text-transform: none;">
                                 <input type="checkbox" value="Sun"> Sun
                             </label>
                         </div>
@@ -1131,7 +1127,7 @@
     <div id="notification-preferences-modal" class="modal-overlay">
         <div class="modal-container" style="max-width: 620px;">
             <div class="modal-header">
-                <h3><i class="fas fa-sliders-h" style="color: var(--primary); margin-right: 8px;"></i> Notification Delivery Settings</h3>
+                <h3><i class="fas fa-sliders-h" style="color: var(--color-primary); margin-right: 8px;"></i> Notification Delivery Settings</h3>
                 <button class="modal-close-btn" id="notif-prefs-close-btn"><i class="fas fa-times"></i></button>
             </div>
             <form id="notification-preferences-form">
@@ -1351,14 +1347,14 @@
 
     <!-- Script Sources -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../js/config.js?v=1.0.9"></script>
-    <script src="../js/utils.js?v=1.0.9"></script>
-    <script src="../js/auth.js?v=1.0.9"></script>
+    <script src="../js/config.js?v=1.1.0"></script>
+    <script src="../js/utils.js?v=1.1.0"></script>
+    <script src="../js/auth.js?v=1.1.0"></script>
     <script>
         // Protect user page
         protectPage('user');
     </script>
-    <script src="../js/user.js?v=1.0.9"></script>
+    <script src="../js/user.js?v=1.1.0"></script>
     <script src="../js/notifications.js?v=1.1.0"></script>
 </body>
 

@@ -3004,6 +3004,111 @@ async function loadChallengePerformanceMetrics() {
     }
 }
 
+async function loadBehavioralAnalyticsData() {
+    try {
+        const res = await fetch(`${window.API_BASE_URL}/api/analytics/behavioral`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) {
+            console.warn('Failed to fetch behavioral analytics data:', res.status);
+            return;
+        }
+
+        const data = await res.json();
+        const wakeUp = data.wake_up_behavior || {};
+        const habitConsistency = data.habit_consistency || {};
+        const snoozePattern = data.snooze_pattern || {};
+
+        const consistency = habitConsistency.wake_up_consistency_percentage !== undefined
+            ? habitConsistency.wake_up_consistency_percentage
+            : (wakeUp.consistency_rate_pct !== undefined ? wakeUp.consistency_rate_pct : (data.consistency_score || 0));
+
+        const avgSnoozes = snoozePattern.average_snoozes_per_alarm !== undefined
+            ? snoozePattern.average_snoozes_per_alarm
+            : (wakeUp.avg_snooze_count !== undefined ? wakeUp.avg_snooze_count : (data.avg_snooze_count || 0));
+
+        const avgWakefulness = data.wakefulness_trend?.average_score !== undefined
+            ? data.wakefulness_trend.average_score
+            : (data.avg_wakefulness !== undefined ? data.avg_wakefulness : 0);
+
+        const avgWakeTime = habitConsistency.average_wake_up_time || wakeUp.avg_wake_time || '--:--';
+        const streak = habitConsistency.wake_up_streak !== undefined
+            ? habitConsistency.wake_up_streak
+            : (wakeUp.current_streak !== undefined ? wakeUp.current_streak : 0);
+
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val;
+        };
+
+        const consistencyStr = `${Number(consistency).toFixed(0)}%`;
+        const snoozesStr = Number(avgSnoozes).toFixed(1);
+        const wakefulnessStr = avgWakefulness > 0 ? `${Number(avgWakefulness).toFixed(1)}/5` : '4.5/5';
+        const wakeTimeStr = avgWakeTime;
+        const streakStr = `${streak} day${streak === 1 ? '' : 's'}`;
+
+        ['behavior-consistency', 'db-behavior-consistency'].forEach(id => setText(id, consistencyStr));
+        ['behavior-snoozes', 'db-behavior-snoozes'].forEach(id => setText(id, snoozesStr));
+        ['behavior-wakefulness', 'db-behavior-wakefulness'].forEach(id => setText(id, wakefulnessStr));
+        ['behavior-wake-time', 'db-behavior-wake-time'].forEach(id => setText(id, wakeTimeStr));
+        ['behavior-streak', 'db-behavior-streak'].forEach(id => setText(id, streakStr));
+
+        // Behavioral Patterns
+        const patterns = [];
+        if (wakeUp.preferred_wake_window) patterns.push(`Typical wake-up window: ${wakeUp.preferred_wake_window}`);
+        if (snoozePattern.most_frequently_snoozed_days && snoozePattern.most_frequently_snoozed_days.length > 0 && snoozePattern.most_frequently_snoozed_days[0] !== 'Insufficient data') {
+            patterns.push(`Highest snooze probability on ${snoozePattern.most_frequently_snoozed_days.join(', ')}`);
+        } else if (wakeUp.most_snoozed_day && wakeUp.most_snoozed_day !== 'Insufficient data') {
+            patterns.push(`Highest snooze probability on ${wakeUp.most_snoozed_day}s`);
+        }
+        if (habitConsistency.snooze_consistency && habitConsistency.snooze_consistency !== 'Insufficient data') {
+            patterns.push(habitConsistency.snooze_consistency);
+        }
+        if (data.sleep_cycle_patterns?.optimal_bedtime) {
+            patterns.push(`Recommended target bedtime: ${data.sleep_cycle_patterns.optimal_bedtime}`);
+        }
+        if (data.cognitive_fatigue?.fatigue_risk_level) {
+            patterns.push(`Cognitive fatigue status: ${data.cognitive_fatigue.fatigue_risk_level.toUpperCase()}`);
+        }
+        if (patterns.length === 0) {
+            patterns.push('Consistency is stabilizing across active alarms.');
+            patterns.push('Maintain scheduled bedtime to optimize cognitive wakefulness.');
+        }
+
+        const insights = data.insights && data.insights.length > 0
+            ? data.insights
+            : ['Insufficient data to generate a behavioral trend insight yet.'];
+
+        const renderPatternsList = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = patterns.map(p => `
+                <li style="margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px;">
+                    <i class="fas fa-chart-line" style="color: #38bdf8; margin-top: 4px; font-size: 0.8rem;"></i>
+                    <span>${p}</span>
+                </li>
+            `).join('');
+        };
+
+        const renderInsightsList = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = insights.map(ins => `
+                <li style="margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px;">
+                    <i class="fas fa-lightbulb" style="color: #fbbf24; margin-top: 4px; font-size: 0.8rem;"></i>
+                    <span>${ins}</span>
+                </li>
+            `).join('');
+        };
+
+        ['behavior-patterns-list', 'db-behavior-patterns-list'].forEach(renderPatternsList);
+        ['behavior-insights-list', 'db-behavior-insights-list'].forEach(renderInsightsList);
+
+    } catch (e) {
+        console.error('Error loading behavioral analytics:', e);
+    }
+}
+
 async function loadProductivityInsightsData() {
     try {
         const res = await fetch(`${window.API_BASE_URL}/api/dashboard/productivity-insights`, {
@@ -3035,11 +3140,11 @@ async function loadProductivityInsightsData() {
 async function refreshAllDashboardAnalytics() {
     await Promise.allSettled([
         loadUserDashboardOverview(),
-        loadAlarmHistory('7days'),
         loadWakeUpStatistics(7),
         loadCategorizedRecommendations(),
         loadChallengePerformanceMetrics(),
         loadProductivityInsightsData(),
+        loadBehavioralAnalyticsData(),
         loadHabitScoreData(7)
     ]);
 }
@@ -3051,6 +3156,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Guard and export refresh hook for verification service
 window.refreshAllDashboardAnalytics = refreshAllDashboardAnalytics;
+window.loadBehavioralAnalyticsData = loadBehavioralAnalyticsData;
 window.filterAlarmHistory = filterAlarmHistory;
 window.applyCustomHistoryFilter = applyCustomHistoryFilter;
 window.setWakeStatsWindow = setWakeStatsWindow;

@@ -69,22 +69,24 @@ if (document.readyState !== 'loading') {
     window.addEventListener('DOMContentLoaded', restoreCoachDashboardTab);
 }
 
-// 2. Fetch Real Patient & Analytics Data from PostgreSQL
+// 2. Fetch Real Assigned Patients & Analytics Data from PostgreSQL
 async function loadCoachDashboardData() {
     try {
-        // Fetch all registered accounts
-        const usersResp = await fetch(`${window.API_BASE_URL}/api/auth/users?t=${Date.now()}`, {
+        // Fetch only users actively assigned to this coach by Admin
+        const usersResp = await fetch(`${window.API_BASE_URL}/api/coach/users?t=${Date.now()}`, {
             headers: getAuthHeaders()
         });
         if (usersResp.ok) {
-            const users = await usersResp.json();
-            registeredPatients = users.filter(u => (u.role || '').toUpperCase() === 'USER');
+            registeredPatients = await usersResp.json();
             if (registeredPatients.length > 0 && currentCoachHabitPatientId === 0) {
                 currentCoachHabitPatientId = registeredPatients[0].id;
             }
+        } else {
+            console.warn('Could not fetch coach assigned patients:', usersResp.status);
+            registeredPatients = [];
         }
     } catch (e) {
-        console.warn('Could not fetch patients list:', e);
+        console.warn('Could not fetch assigned patients list:', e);
         registeredPatients = [];
     }
 
