@@ -316,14 +316,15 @@ def _safe_average(values: List[float]) -> float:
     return round(mean(values), 2)
 
 
-def _to_hhmm(value: Optional[datetime]) -> Optional[str]:
+def _to_hhmm(value: Optional[datetime], offset_minutes: Optional[int] = None) -> Optional[str]:
     if value is None:
         return None
     if hasattr(value, "time"):
         dt = value
     else:
         return None
-    return dt.strftime("%H:%M")
+    from services.timezone_service import to_user_hhmm
+    return to_user_hhmm(dt, offset_minutes)
 
 
 def _sorted_unique_dates(values: List[datetime]) -> List[str]:

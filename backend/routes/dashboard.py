@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, date
 from statistics import mean
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
@@ -55,15 +55,22 @@ from schemas import (
     ChallengePerformanceSection,
 )
 
+from services.timezone_service import (
+    extract_timezone_offset_from_request,
+    to_user_datetime,
+    to_user_hhmm,
+    to_user_date_str,
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/dashboard", tags=["User Dashboard & Analytics"])
 
 
-def _to_hhmm_str(dt: Optional[datetime]) -> Optional[str]:
+def _to_hhmm_str(dt: Optional[datetime], offset_minutes: Optional[int] = None) -> Optional[str]:
     if not dt:
         return None
-    return dt.strftime("%H:%M")
+    return to_user_hhmm(dt, offset_minutes)
 
 
 def _minutes_from_midnight(time_str: Optional[str]) -> Optional[int]:
@@ -85,12 +92,14 @@ def _minutes_to_hhmm(minutes: Optional[float]) -> Optional[str]:
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
 def get_dashboard_overview(
+    request: Optional[Request] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Returns high-level user dashboard overview calculated from real PostgreSQL records.
     """
+    offset = extract_timezone_offset_from_request(request, current_user.id)
     total_alarms = db.query(Alarm).filter(Alarm.user_id == current_user.id).count()
     active_alarms = db.query(Alarm).filter(Alarm.user_id == current_user.id, Alarm.is_active == True).count()
 
@@ -132,18 +141,20 @@ def get_dashboard_overview(
 
         actual_time = max(completed_times) if completed_times else (max(created_times) if created_times else None)
         if actual_time:
-            actual_min = actual_time.hour * 60 + actual_time.minute
-            wake_times_minutes.append(actual_min)
+            user_actual_time = to_user_datetime(actual_time, offset)
+            actual_min = (user_actual_time.hour * 60 + user_actual_time.minute) if user_actual_time else None
+            if actual_min is not None:
+                wake_times_minutes.append(actual_min)
 
-            # Check alarm scheduled time for delay
-            alarm_id = s_attempts[0].alarm_id
-            alarm = alarm_map.get(alarm_id)
-            if alarm and alarm.alarm_time:
-                sched_min = _minutes_from_midnight(alarm.alarm_time)
-                if sched_min is not None:
-                    delay = actual_min - sched_min
-                    if delay >= -120 and delay <= 360:  # Sensible range for same-day wake session
-                        wake_delays.append(max(0, delay))
+                # Check alarm scheduled time for delay
+                alarm_id = s_attempts[0].alarm_id
+                alarm = alarm_map.get(alarm_id)
+                if alarm and alarm.alarm_time:
+                    sched_min = _minutes_from_midnight(alarm.alarm_time)
+                    if sched_min is not None:
+                        delay = actual_min - sched_min
+                        if delay >= -120 and delay <= 360:  # Sensible range for same-day wake session
+                            wake_delays.append(max(0, delay))
 
         for att in s_attempts:
             if att.wakefulness_rating is not None and att.wakefulness_rating > 0:
@@ -208,6 +219,7 @@ def get_dashboard_overview(
 
 @router.get("/alarm-history", response_model=AlarmHistoryResponse)
 def get_alarm_history(
+    request: Optional[Request] = None,
     filter_type: str = Query("7days", description="Filter: today, 7days, 30days, custom"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD) for custom filter"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD) for custom filter"),
@@ -217,6 +229,7 @@ def get_alarm_history(
     """
     Returns real alarm execution history table from PostgreSQL with date filtering.
     """
+    offset = extract_timezone_offset_from_request(request, current_user.id)
     today = date.today()
     query_start = None
     query_end = today
@@ -272,11 +285,12 @@ def get_alarm_history(
 
         alarm = alarms_map.get(first_att.alarm_id)
         alarm_label = alarm.title if alarm else (f"Alarm #{first_att.alarm_id}" if first_att.alarm_id else "Quick Wakeup Drill")
-        scheduled_time = alarm.alarm_time if alarm else _to_hhmm_str(first_att.created_at)
-        trigger_time = _to_hhmm_str(first_att.created_at)
+        user_first_att = to_user_datetime(first_att.created_at, offset)
+        scheduled_time = alarm.alarm_time if alarm else to_user_hhmm(first_att.created_at, offset)
+        trigger_time = to_user_hhmm(first_att.created_at, offset)
 
         completed_at = max((a.completed_at for a in s_attempts if a.completed_at), default=None)
-        actual_wake_time = _to_hhmm_str(completed_at) if completed_at else _to_hhmm_str(last_att.created_at)
+        actual_wake_time = to_user_hhmm(completed_at, offset) if completed_at else to_user_hhmm(last_att.created_at, offset)
 
         # Status determination
         is_passed = any(a.verification_status in {"passed", "completed"} or a.is_correct for a in s_attempts)
@@ -293,11 +307,11 @@ def get_alarm_history(
             verif_res = "In Progress"
 
         # Count snoozes related to this alarm / session
-        session_date = first_att.created_at.date() if first_att.created_at else None
+        session_date = user_first_att.date() if user_first_att else None
         snooze_count = sum(
             int(s.snooze_count or 0)
             for s in snooze_events
-            if s.alarm_id == first_att.alarm_id and (s.created_at.date() == session_date if s.created_at and session_date else True)
+            if s.alarm_id == first_att.alarm_id and (to_user_datetime(s.created_at, offset).date() == session_date if s.created_at and session_date else True)
         )
 
         wakefulness = max((a.wakefulness_rating for a in s_attempts if a.wakefulness_rating is not None), default=None)
@@ -305,6 +319,9 @@ def get_alarm_history(
         total_q = len(s_attempts)
         correct_q = sum(1 for a in s_attempts if a.is_correct)
         challenge_res = f"{correct_q}/{total_q} Correct ({round(correct_q / total_q * 100)}%)" if total_q else "None"
+
+        date_str = to_user_date_str(first_att.created_at, offset) if first_att.created_at else "Unknown"
+        created_at_str = user_first_att.strftime("%Y-%m-%d %H:%M:%S") if user_first_att else None
 
         history_items.append(
             AlarmHistoryItem(
@@ -319,8 +336,8 @@ def get_alarm_history(
                 verification_result=verif_res,
                 wakefulness_rating=wakefulness,
                 challenge_result=challenge_res,
-                date=first_att.created_at.strftime("%Y-%m-%d") if first_att.created_at else "Unknown",
-                created_at=first_att.created_at.strftime("%Y-%m-%d %H:%M:%S") if first_att.created_at else None,
+                date=date_str,
+                created_at=created_at_str,
             )
         )
 
@@ -334,14 +351,17 @@ def get_alarm_history(
 
 
 @router.get("/wake-up-statistics", response_model=WakeUpStatisticsResponse)
+@router.get("/wake-time-consistency", response_model=WakeUpStatisticsResponse)
 def get_wake_up_statistics(
-    days: int = Query(30, ge=1, le=90, description="History window in days"),
+    request: Optional[Request] = None,
+    days: int = Query(30, ge=1, le=90, description="Window in days (7 or 30)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Returns calculated wake-up statistics and scheduled vs actual wake time trends for Chart.js.
     """
+    offset = extract_timezone_offset_from_request(request, current_user.id)
     start_dt = datetime.combine(date.today() - timedelta(days=days), datetime.min.time())
     attempts = (
         db.query(ChallengeAttempt)
@@ -373,16 +393,18 @@ def get_wake_up_statistics(
         ordered = sorted(s_attempts, key=lambda x: x.created_at or datetime.min)
         first_att = ordered[0]
         last_att = ordered[-1]
-        session_date = first_att.created_at.strftime("%Y-%m-%d") if first_att.created_at else "Unknown"
+        user_first_created = to_user_datetime(first_att.created_at, offset)
+        session_date = user_first_created.strftime("%Y-%m-%d") if user_first_created else "Unknown"
 
         alarm = alarms_map.get(first_att.alarm_id)
         sched_min = _minutes_from_midnight(alarm.alarm_time) if alarm and alarm.alarm_time else None
-        if sched_min is None and first_att.created_at:
-            sched_min = first_att.created_at.hour * 60 + first_att.created_at.minute
+        if sched_min is None and user_first_created:
+            sched_min = user_first_created.hour * 60 + user_first_created.minute
 
         completed_at = max((a.completed_at for a in s_attempts if a.completed_at), default=None)
         actual_time = completed_at or last_att.created_at
-        actual_min = (actual_time.hour * 60 + actual_time.minute) if actual_time else None
+        user_actual_time = to_user_datetime(actual_time, offset)
+        actual_min = (user_actual_time.hour * 60 + user_actual_time.minute) if user_actual_time else None
 
         if sched_min is not None:
             sched_minutes_list.append(sched_min)

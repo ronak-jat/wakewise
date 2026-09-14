@@ -11,12 +11,13 @@
 
 </head>
 
-<audio id="alarm-audio" loop preload="auto">
-    <source src="../assets/sounds/radar.mp3" type="audio/mpeg">
-    <source src="/assets/sounds/radar.mp3" type="audio/mpeg">
-</audio>
-
 <body data-theme="dark">
+    <!-- Audio element properly placed within body -->
+    <audio id="alarm-audio" loop preload="auto">
+        <source src="../assets/sounds/radar.mp3" type="audio/mpeg">
+        <source src="/assets/sounds/radar.mp3" type="audio/mpeg">
+    </audio>
+
     <!-- Loader Mask -->
     <div id="loader-mask" class="loader-mask">
         <div class="spinner"></div>
@@ -258,9 +259,14 @@
                                     <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-bell grad-text"></i> Active Alarms</h3>
                                     <span style="font-size: 0.78rem; color: var(--text-secondary);">Showing top 3 active wakeup schedules</span>
                                 </div>
-                                <button class="btn btn-secondary" onclick="switchTab('tab-alarms')" style="padding: 4px 10px; font-size: 0.75rem;">
-                                    Manage All <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
-                                </button>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <button class="btn btn-secondary" id="test-audio-btn" onclick="window.testAlarmSound()" style="padding: 4px 10px; font-size: 0.75rem;" title="Test alarm sound & initialize audio permissions">
+                                        <i class="fas fa-volume-up" style="margin-right: 4px;"></i> Test Sound
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="switchTab('tab-alarms')" style="padding: 4px 10px; font-size: 0.75rem;">
+                                        Manage All <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="table-responsive">
                                 <table class="custom-table" id="alarms-table-body">
@@ -319,9 +325,14 @@
                                 <h3 style="margin: 0; font-size: 1.3rem;"><i class="fas fa-clock grad-text"></i> Alarm Management Panel</h3>
                                 <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 0.85rem;">Configure cognitive wakeup alarms, difficulty levels, and multi-step verification.</p>
                             </div>
-                            <button class="btn btn-primary" onclick="Modal.open('add-alarm-modal')">
-                                <i class="fas fa-plus"></i> Set New Alarm
-                            </button>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <button class="btn btn-secondary" id="test-audio-alarms-btn" onclick="window.testAlarmSound()" title="Test alarm sound & initialize audio permissions">
+                                    <i class="fas fa-volume-up" style="margin-right: 4px;"></i> Test Sound
+                                </button>
+                                <button class="btn btn-primary" onclick="Modal.open('add-alarm-modal')">
+                                    <i class="fas fa-plus"></i> Set New Alarm
+                                </button>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="custom-table" id="alarms-manager-table">

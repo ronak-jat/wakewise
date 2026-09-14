@@ -141,40 +141,30 @@ def evaluate_smart_adaptive_rules(alarm: Alarm, metrics: dict):
     }
 
 
+from services.timezone_service import (
+    get_user_timezone,
+    set_user_timezone,
+    get_user_now as tz_get_user_now,
+    to_user_datetime,
+    to_user_hhmm,
+)
+
 # Timezone offset cache (offset in minutes from UTC, e.g., +330 for IST)
 user_timezone_offsets: dict = {}
 triggered_cache: set = set()
 
 
 def get_user_timezone_offset(user_id: Optional[int]) -> int:
-    """
-    Returns timezone offset in minutes from UTC for a user.
-    Checks:
-    1. In-memory user_timezone_offsets registered via frontend requests.
-    2. DEFAULT_TIMEZONE_OFFSET environment variable (default: 330 for IST UTC+05:30).
-    """
+    """Returns timezone offset in minutes from UTC for a user."""
     if user_id is not None and user_id in user_timezone_offsets:
         return user_timezone_offsets[user_id]
-
-    env_offset = os.getenv("DEFAULT_TIMEZONE_OFFSET")
-    if env_offset:
-        try:
-            return int(env_offset)
-        except ValueError:
-            pass
-
-    tz_env = os.getenv("TZ", "")
-    if "kolkata" in tz_env.lower() or "calcutta" in tz_env.lower() or "ist" in tz_env.lower():
-        return 330
-
-    return int(os.getenv("DEFAULT_TIMEZONE_OFFSET", "330"))
+    return get_user_timezone(user_id)
 
 
 def get_user_now(user_id: Optional[int]) -> datetime.datetime:
     """Returns datetime localized to the user's specific timezone."""
     offset_min = get_user_timezone_offset(user_id)
-    tz = datetime.timezone(datetime.timedelta(minutes=offset_min))
-    return datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
+    return tz_get_user_now(offset_min)
 
 
 def is_alarm_due(alarm: Alarm, user_now: datetime.datetime) -> tuple:
@@ -318,19 +308,30 @@ def check_and_trigger_user_due_alarms(db: Session, user_id: int, offset_minutes:
     user_alarms = db.query(Alarm).filter(Alarm.user_id == user_id, Alarm.is_active == True).all()
 
     newly_triggered = []
+    current_utc_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     for alarm in user_alarms:
         due, target_time, adaptive_info = is_alarm_due(alarm, user_now)
-        logger.debug(
-            "[SCHEDULER] User %d Alarm ID=%d (Target=%s, LocalNow=%s) -> due=%s",
-            user_id, alarm.id, target_time, user_now.strftime("%H:%M"), due
+        logger.info(
+            "[FAST-POLL EVAL] Server UTC: %s | Alarm ID: %d | Stored: %s | Interpreted User Time: %s (Offset: %+dm) | Due: %s",
+            current_utc_str,
+            alarm.id,
+            alarm.alarm_time,
+            user_now.strftime("%H:%M"),
+            get_user_timezone_offset(alarm.user_id),
+            due
         )
         if due:
             today_str = user_now.strftime("%Y-%m-%d")
             cache_key = (alarm.id, today_str, target_time)
             triggered_cache.add(cache_key)
+            trigger_utc_now = datetime.datetime.now(datetime.timezone.utc)
             logger.info(
-                "[SCHEDULER] Alarm ID=%d is DUE for User %d (Target=%s, LocalNow=%s)",
-                alarm.id, user_id, target_time, user_now.strftime("%H:%M")
+                "[FAST-POLL TRIGGER] Alarm ID: %d TRIGGERED at Server UTC: %s | User Local: %s | Stored: %s | Trigger Timestamp: %s",
+                alarm.id,
+                trigger_utc_now.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                user_now.strftime("%Y-%m-%d %H:%M:%S"),
+                alarm.alarm_time,
+                trigger_utc_now.isoformat()
             )
             item = trigger_alarm_for_user(db, alarm, user_now, adaptive_info)
             newly_triggered.append(item)
@@ -368,23 +369,34 @@ async def alarm_scheduler_loop():
             cache_to_keep = {item for item in triggered_cache if item[1] in today_date_strs}
             triggered_cache.intersection_update(cache_to_keep)
 
+            server_utc_str = utc_now.strftime("%Y-%m-%d %H:%M:%S UTC")
             for alarm in active_alarms:
                 user_now = get_user_now(alarm.user_id)
                 user_time_str = user_now.strftime("%H:%M")
                 due, target_time, adaptive_info = is_alarm_due(alarm, user_now)
 
-                logger.debug(
-                    "[SCHEDULER] Evaluating Alarm ID=%d for User %d (Target: %s, User Time: %s)...",
-                    alarm.id, alarm.user_id, target_time, user_time_str
+                logger.info(
+                    "[SCHEDULER EVAL] Server UTC: %s | Alarm ID: %d | Stored: %s | Interpreted User Time: %s (Offset: %+dm) | Due: %s",
+                    server_utc_str,
+                    alarm.id,
+                    alarm.alarm_time,
+                    user_time_str,
+                    get_user_timezone_offset(alarm.user_id),
+                    due
                 )
 
                 if due:
                     today_str = user_now.strftime("%Y-%m-%d")
                     cache_key = (alarm.id, today_str, target_time)
                     triggered_cache.add(cache_key)
+                    trigger_utc_now = datetime.datetime.now(datetime.timezone.utc)
                     logger.info(
-                        "[SCHEDULER] Alarm ID=%d is DUE (Target: %s, User Time: %s)",
-                        alarm.id, target_time, user_time_str
+                        "[SCHEDULER TRIGGER] Alarm ID: %d TRIGGERED at Server UTC: %s | User Local: %s | Stored: %s | Trigger Timestamp: %s",
+                        alarm.id,
+                        trigger_utc_now.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                        user_now.strftime("%Y-%m-%d %H:%M:%S"),
+                        alarm.alarm_time,
+                        trigger_utc_now.isoformat()
                     )
                     trigger_alarm_for_user(db, alarm, user_now, adaptive_info)
                 else:

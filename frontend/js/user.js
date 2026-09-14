@@ -51,6 +51,10 @@ function getChallengeLabel(challenge) {
     return challenge || 'None';
 }
 
+function getSoundUrl() {
+    return window.location.pathname.includes('/user/') ? '../assets/sounds/radar.mp3' : '/assets/sounds/radar.mp3';
+}
+
 function getAlarmAudioElement() {
     let audio = document.getElementById('alarm-audio');
     if (!audio) {
@@ -58,36 +62,80 @@ function getAlarmAudioElement() {
         audio.id = 'alarm-audio';
         audio.loop = true;
         audio.preload = 'auto';
-
-        const src1 = document.createElement('source');
-        src1.src = '../assets/sounds/radar.mp3';
-        src1.type = 'audio/mpeg';
-
-        const src2 = document.createElement('source');
-        src2.src = '/assets/sounds/radar.mp3';
-        src2.type = 'audio/mpeg';
-
-        audio.appendChild(src1);
-        audio.appendChild(src2);
         document.body.appendChild(audio);
+    }
+    if (!audio.src || audio.src === '' || audio.src.endsWith('/')) {
+        audio.src = getSoundUrl();
     }
     return audio;
 }
 
+// Global Audio Engine State
+window.WakeWiseAudioContext = null;
+window.radarAudioBuffer = null;
+window.activeWebAudioSource = null;
+let synthPulseInterval = null;
+
+// Initialize and resume AudioContext on user interaction
+async function initWakeWiseAudio() {
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!window.WakeWiseAudioContext) {
+            window.WakeWiseAudioContext = new AudioContextClass();
+        }
+        if (window.WakeWiseAudioContext.state === 'suspended') {
+            await window.WakeWiseAudioContext.resume();
+        }
+
+        // Pre-fetch & decode radar.mp3 for buffer playback
+        if (!window.radarAudioBuffer) {
+            try {
+                const soundUrl = getSoundUrl();
+                const res = await fetch(soundUrl);
+                if (res.ok) {
+                    const arrayBuf = await res.arrayBuffer();
+                    window.WakeWiseAudioContext.decodeAudioData(arrayBuf, (decoded) => {
+                        window.radarAudioBuffer = decoded;
+                        console.log('[AUDIO] radar.mp3 pre-decoded into Web Audio buffer.');
+                    }, (err) => {
+                        console.warn('[AUDIO] decodeAudioData note:', err);
+                    });
+                }
+            } catch (fetchErr) {
+                console.warn('[AUDIO] Failed to fetch radar.mp3 buffer:', fetchErr);
+            }
+        }
+
+        // Pre-prime HTML5 audio element
+        const audio = getAlarmAudioElement();
+        if (audio) {
+            audio.muted = false;
+            audio.volume = 1.0;
+        }
+    } catch (e) {
+        console.warn('[AUDIO] initWakeWiseAudio note:', e);
+    }
+}
+
+// Attach gesture listener to prime audio on any user action
+['click', 'keydown', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, initWakeWiseAudio, { passive: true });
+});
+
 // Web Audio API synthesizer pulse fallback
 function playSynthesizerBeep() {
     try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-        const ctx = new AudioCtx();
+        const ctx = window.WakeWiseAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+        if (!ctx) return;
         if (ctx.state === 'suspended') {
-            ctx.resume();
+            ctx.resume().catch(() => {});
         }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(880, ctx.currentTime);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -98,43 +146,83 @@ function playSynthesizerBeep() {
     }
 }
 
-// Pre-prime audio permission on user interaction
-(function setupAudioAutoplayUnlocker() {
-    const unlock = () => {
-        try {
-            const audio = getAlarmAudioElement();
-            if (audio) {
-                audio.muted = true;
-                const p = audio.play();
-                if (p && typeof p.then === 'function') {
-                    p.then(() => {
-                        audio.pause();
-                        audio.muted = false;
-                        audio.currentTime = 0;
-                    }).catch(() => {});
+function playWebAudioBufferOrBeep() {
+    if (window.WakeWiseAudioContext) {
+        if (window.WakeWiseAudioContext.state === 'suspended') {
+            window.WakeWiseAudioContext.resume().catch(() => {});
+        }
+        if (window.radarAudioBuffer) {
+            try {
+                if (window.activeWebAudioSource) {
+                    try { window.activeWebAudioSource.stop(); } catch (_) {}
                 }
+                const srcNode = window.WakeWiseAudioContext.createBufferSource();
+                srcNode.buffer = window.radarAudioBuffer;
+                srcNode.loop = true;
+                const gainNode = window.WakeWiseAudioContext.createGain();
+                gainNode.gain.value = 1.0;
+                srcNode.connect(gainNode);
+                gainNode.connect(window.WakeWiseAudioContext.destination);
+                srcNode.start(0);
+                window.activeWebAudioSource = srcNode;
+                console.log("🔊 ALARM AUDIO PLAYING SUCCESSFULLY (Web Audio Buffer)");
+                return;
+            } catch (err) {
+                console.warn('[AUDIO] Web Audio Buffer play note:', err);
             }
-        } catch (_) {}
-        document.removeEventListener('click', unlock);
-        document.removeEventListener('keydown', unlock);
-        document.removeEventListener('touchstart', unlock);
-    };
-    document.addEventListener('click', unlock, { once: true });
-    document.addEventListener('keydown', unlock, { once: true });
-    document.addEventListener('touchstart', unlock, { once: true });
-})();
+        }
+    }
+    // Fallback to synthesizer pulse
+    if (!synthPulseInterval) {
+        synthPulseInterval = setInterval(playSynthesizerBeep, 1500);
+        playSynthesizerBeep();
+    }
+}
 
-let currentRingingAlarm = null;
-let activeCognitiveChallenge = null;
-let selectedChallengeOption = null;
-let memoryTimer = null;
-let synthPulseInterval = null;
+window.testAlarmSound = async function() {
+    await initWakeWiseAudio();
+    Toast.show('Testing Alarm Sound', 'Playing radar alarm tone for 3 seconds...', 'info', 3500);
+    const audio = getAlarmAudioElement();
+    let testPlayed = false;
+    if (audio) {
+        audio.muted = false;
+        audio.volume = 1.0;
+        audio.currentTime = 0;
+        try {
+            await audio.play();
+            testPlayed = true;
+            setTimeout(() => {
+                audio.pause();
+                audio.currentTime = 0;
+            }, 3000);
+        } catch (_) {}
+    }
+    if (!testPlayed) {
+        playWebAudioBufferOrBeep();
+        setTimeout(() => {
+            if (window.activeWebAudioSource) {
+                try { window.activeWebAudioSource.stop(); } catch (_) {}
+                window.activeWebAudioSource = null;
+            }
+            if (synthPulseInterval) {
+                clearInterval(synthPulseInterval);
+                synthPulseInterval = null;
+            }
+        }, 3000);
+    }
+};
 
 window.stopAlarmSound = () => {
     const audio = getAlarmAudioElement();
     if (audio) {
         audio.pause();
         audio.currentTime = 0;
+    }
+    if (window.activeWebAudioSource) {
+        try {
+            window.activeWebAudioSource.stop();
+        } catch (_) {}
+        window.activeWebAudioSource = null;
     }
     if (synthPulseInterval) {
         clearInterval(synthPulseInterval);
@@ -285,38 +373,40 @@ function triggerAlarmSound(alarm) {
     if (audio) {
         audio.loop = true;
         audio.volume = 1.0;
+        audio.muted = false;
         audio.currentTime = 0;
 
         audio.play()
             .then(() => {
-                console.log("🔊 ALARM AUDIO PLAYING SUCCESSFULLY");
+                console.log("🔊 ALARM AUDIO PLAYING SUCCESSFULLY (HTML5 Audio)");
             })
             .catch(error => {
-                console.error("❌ ALARM AUDIO FAILED (Autoplay restrictions or asset load):", error.name, error.message);
-
-                // Start synthesizer pulse fallback so alarm is still audible
-                if (!synthPulseInterval) {
-                    synthPulseInterval = setInterval(playSynthesizerBeep, 1500);
-                    playSynthesizerBeep();
-                }
+                console.warn("⚠️ HTML5 Audio.play() restricted or delayed:", error.name, error.message);
+                playWebAudioBufferOrBeep();
 
                 Toast.show(
-                    'Alarm Sound Blocked',
-                    'Click anywhere on the page to unlock the alarm sound.',
+                    'Alarm Ringing',
+                    'Click anywhere on the screen to maximize alarm volume.',
                     'warning',
                     6000
                 );
 
                 const unlockAudio = async () => {
                     try {
+                        await initWakeWiseAudio();
                         audio.currentTime = 0;
                         audio.loop = true;
+                        audio.muted = false;
                         audio.volume = 1.0;
                         await audio.play();
                         console.log("🔊 ALARM AUDIO UNLOCKED AND PLAYING");
                         if (synthPulseInterval) {
                             clearInterval(synthPulseInterval);
                             synthPulseInterval = null;
+                        }
+                        if (window.activeWebAudioSource) {
+                            try { window.activeWebAudioSource.stop(); } catch (_) {}
+                            window.activeWebAudioSource = null;
                         }
                         document.removeEventListener('click', unlockAudio);
                         document.removeEventListener('keydown', unlockAudio);
@@ -330,6 +420,8 @@ function triggerAlarmSound(alarm) {
                 document.addEventListener('keydown', unlockAudio);
                 document.addEventListener('touchstart', unlockAudio);
             });
+    } else {
+        playWebAudioBufferOrBeep();
     }
 
     // Render HUD and start verification session
