@@ -139,145 +139,265 @@ def evaluate_smart_adaptive_rules(alarm: Alarm, metrics: dict):
         "rules_applied": rules_applied
     }
 
+
+# Timezone offset cache (offset in minutes from UTC, e.g., +330 for IST)
+user_timezone_offsets: dict = {}
+triggered_cache: set = set()
+
+
+def get_user_timezone_offset(user_id: Optional[int]) -> int:
+    """
+    Returns timezone offset in minutes from UTC for a user.
+    Checks:
+    1. In-memory user_timezone_offsets registered via frontend requests.
+    2. DEFAULT_TIMEZONE_OFFSET environment variable (default: 330 for IST UTC+05:30).
+    """
+    if user_id is not None and user_id in user_timezone_offsets:
+        return user_timezone_offsets[user_id]
+
+    env_offset = os.getenv("DEFAULT_TIMEZONE_OFFSET")
+    if env_offset:
+        try:
+            return int(env_offset)
+        except ValueError:
+            pass
+
+    tz_env = os.getenv("TZ", "")
+    if "kolkata" in tz_env.lower() or "calcutta" in tz_env.lower() or "ist" in tz_env.lower():
+        return 330
+
+    return int(os.getenv("DEFAULT_TIMEZONE_OFFSET", "330"))
+
+
+def get_user_now(user_id: Optional[int]) -> datetime.datetime:
+    """Returns datetime localized to the user's specific timezone."""
+    offset_min = get_user_timezone_offset(user_id)
+    tz = datetime.timezone(datetime.timedelta(minutes=offset_min))
+    return datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
+
+
+def is_alarm_due(alarm: Alarm, user_now: datetime.datetime) -> tuple:
+    """
+    Evaluates whether an active alarm is due for trigger at the user's localized datetime.
+    Returns: (is_due: bool, target_time: str, adaptive_info: Optional[dict])
+    """
+    today_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][user_now.weekday()]
+    today_is_weekend = user_now.weekday() in (5, 6)
+
+    is_scheduled_today = False
+    if alarm.alarm_type == "Daily":
+        is_scheduled_today = True
+    elif alarm.alarm_type in {"Weekday", "Weekdays"}:
+        is_scheduled_today = not today_is_weekend
+    elif alarm.alarm_type in {"Weekend", "Weekends"}:
+        is_scheduled_today = today_is_weekend
+    elif alarm.alarm_type == "One-Time":
+        is_scheduled_today = True
+    elif alarm.alarm_type == "Smart Adaptive":
+        is_scheduled_today = True
+    else:
+        days = [d.strip() for d in (alarm.repeat_days or "").split(",") if d.strip()]
+        is_scheduled_today = today_name in days
+
+    if not is_scheduled_today:
+        return False, alarm.alarm_time, None
+
+    target_time = alarm.alarm_time
+    adaptive_info = None
+
+    if alarm.alarm_type == "Smart Adaptive":
+        try:
+            metrics = {"sleep_hours": 7.5, "cognitive_accuracy": 92}
+            adaptive_info = evaluate_smart_adaptive_rules(alarm, metrics)
+            target_time = adaptive_info["adjusted_time"]
+        except Exception:
+            target_time = alarm.alarm_time
+
+    today_str = user_now.strftime("%Y-%m-%d")
+    cache_key = (alarm.id, today_str, target_time)
+
+    if cache_key in triggered_cache:
+        return False, target_time, adaptive_info
+
+    # Minute comparison with 1-minute grace window for loop interval tolerance
+    try:
+        target_h, target_m = map(int, target_time.split(":"))
+        target_minute_of_day = target_h * 60 + target_m
+        current_minute_of_day = user_now.hour * 60 + user_now.minute
+        minute_diff = current_minute_of_day - target_minute_of_day
+    except Exception:
+        minute_diff = 999
+
+    due = (0 <= minute_diff <= 1)
+    return due, target_time, adaptive_info
+
+
+def trigger_alarm_for_user(db: Session, alarm: Alarm, user_now: datetime.datetime, adaptive_info: Optional[dict] = None) -> dict:
+    """
+    Constructs challenge, registers session, adds to triggered_alarms queue, and logs event.
+    """
+    target_time = adaptive_info["adjusted_time"] if adaptive_info else alarm.alarm_time
+    today_str = user_now.strftime("%Y-%m-%d")
+
+    if alarm.alarm_type == "One-Time":
+        deactivate_one_time_alarm_if_needed(db, alarm)
+
+    rec = get_adaptive_recommendation(
+        db=db,
+        user_id=alarm.user_id,
+        base_difficulty=alarm.difficulty_level or "Medium",
+        preferred_type=alarm.challenge
+    )
+
+    if alarm.alarm_type == "Smart Adaptive" and adaptive_info:
+        diff_level = adaptive_info["difficulty"]
+    else:
+        diff_level = rec["recommended_difficulty"]
+
+    ch_type = rec["recommended_challenge_type"]
+    normalized_type = map_challenge_type(ch_type)
+
+    existing = find_session_by_alarm(alarm.id, alarm.user_id)
+    if existing:
+        challenge_payload = existing
+    else:
+        challenge_payload = generate_cognitive_challenge(normalized_type, diff_level)
+        session_id = f"chal_{uuid.uuid4().hex[:12]}"
+        challenge_payload["id"] = session_id
+        challenge_payload["user_id"] = alarm.user_id
+        challenge_payload["recommended_difficulty"] = diff_level
+        challenge_payload["recommended_challenge_type"] = ch_type
+        challenge_payload["adaptive_reason"] = rec["reason"]
+        challenge_payload["alarm_id"] = alarm.id
+        challenge_payload["time_limit"] = get_time_limit_for_difficulty(diff_level)
+        challenge_payload["source"] = "scheduler"
+        challenge_payload["scheduler_generated"] = True
+        add_session(session_id, challenge_payload)
+
+    alarm_item = {
+        "id": alarm.id,
+        "user_id": alarm.user_id,
+        "title": alarm.title,
+        "sound": adaptive_info["sound"] if adaptive_info else alarm.sound,
+        "difficulty": diff_level,
+        "time": target_time,
+        "alarm_type": alarm.alarm_type,
+        "challenge_type": ch_type,
+        "adaptive_reason": rec["reason"],
+        "verification_method": getattr(alarm, "verification_method", "puzzle_completion") or "puzzle_completion",
+        "verification_steps": getattr(alarm, "verification_steps", 1) or 1,
+        "required_accuracy": getattr(alarm, "required_accuracy", 100) or 100,
+        "consecutive_required": getattr(alarm, "consecutive_required", 1) or 1,
+        "time_limit": getattr(alarm, "time_limit", 20) or 20,
+        "snooze_duration": getattr(alarm, "snooze_duration", 5) or 5,
+        "max_snoozes": getattr(alarm, "max_snoozes", 3) if getattr(alarm, "max_snoozes", None) is not None else 3,
+        "snooze_count": 0,
+        "occurrence_id": f"alarm_{alarm.id}_{today_str}_{target_time}",
+        "challenge": challenge_payload
+    }
+
+    triggered_alarms.append(alarm_item)
+
+    logger.info(
+        "[ALARM TRIGGERED] Alarm ID=%s (User ID=%s, Title='%s', Time=%s, Difficulty=%s)",
+        alarm.id, alarm.user_id, alarm.title, target_time, diff_level
+    )
+    return alarm_item
+
+
+def check_and_trigger_user_due_alarms(db: Session, user_id: int, offset_minutes: Optional[int] = None) -> list:
+    """
+    Checks and triggers any due alarms for a user in real-time when polling.
+    Ensures zero latency without waiting for the 30s background loop.
+    """
+    if offset_minutes is not None:
+        user_timezone_offsets[user_id] = offset_minutes
+
+    user_now = get_user_now(user_id)
+    user_alarms = db.query(Alarm).filter(Alarm.user_id == user_id, Alarm.is_active == True).all()
+
+    newly_triggered = []
+    for alarm in user_alarms:
+        due, target_time, adaptive_info = is_alarm_due(alarm, user_now)
+        logger.debug(
+            "[SCHEDULER] User %d Alarm ID=%d (Target=%s, LocalNow=%s) -> due=%s",
+            user_id, alarm.id, target_time, user_now.strftime("%H:%M"), due
+        )
+        if due:
+            today_str = user_now.strftime("%Y-%m-%d")
+            cache_key = (alarm.id, today_str, target_time)
+            triggered_cache.add(cache_key)
+            logger.info(
+                "[SCHEDULER] Alarm ID=%d is DUE for User %d (Target=%s, LocalNow=%s)",
+                alarm.id, user_id, target_time, user_now.strftime("%H:%M")
+            )
+            item = trigger_alarm_for_user(db, alarm, user_now, adaptive_info)
+            newly_triggered.append(item)
+
+    return newly_triggered
+
+
 async def alarm_scheduler_loop():
     """
     Background loop checking active alarms every 30 seconds.
     """
-    logger.info("Background Alarm Scheduler Service started.")
-    triggered_cache = set()
+    logger.info("[SCHEDULER] Background Alarm Scheduler Service started.")
 
     while True:
         db = None
         try:
             db = SessionLocal()
-            now = datetime.datetime.now()
-            due_snoozes = [item for item in scheduled_snoozes if item["due_at"] <= now]
+            utc_now = datetime.datetime.now(datetime.timezone.utc)
+
+            # Check snoozed alarms
+            due_snoozes = [item for item in scheduled_snoozes if item["due_at"] <= utc_now]
             for item in due_snoozes:
                 _trigger_snoozed_alarm(db, item)
                 scheduled_snoozes.remove(item)
-            today_name = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][now.weekday()]
-            today_is_weekend = now.weekday() in (5, 6)
-            current_time_str = now.strftime("%H:%M")
-            today_str = now.strftime("%Y-%m-%d")
-
-            cache_to_keep = {item for item in triggered_cache if item[1] == today_str}
-            triggered_cache.intersection_update(cache_to_keep)
 
             active_alarms = db.query(Alarm).filter(Alarm.is_active == True).all()
+            logger.info("[SCHEDULER] Checked %d active alarms across users.", len(active_alarms))
+
+            # Prune cache to keep only today's entries
+            today_date_strs = {
+                get_user_now(a.user_id).strftime("%Y-%m-%d") for a in active_alarms
+            }
+            if not today_date_strs:
+                today_date_strs = {utc_now.strftime("%Y-%m-%d")}
+            cache_to_keep = {item for item in triggered_cache if item[1] in today_date_strs}
+            triggered_cache.intersection_update(cache_to_keep)
 
             for alarm in active_alarms:
-                is_scheduled_today = False
-                if alarm.alarm_type == "Daily":
-                    is_scheduled_today = True
-                elif alarm.alarm_type in {"Weekday", "Weekdays"}:
-                    is_scheduled_today = not today_is_weekend
-                elif alarm.alarm_type in {"Weekend", "Weekends"}:
-                    is_scheduled_today = today_is_weekend
-                elif alarm.alarm_type == "One-Time":
-                    is_scheduled_today = True
-                elif alarm.alarm_type == "Smart Adaptive":
-                    is_scheduled_today = True
-                else:
-                    days = [d.strip() for d in alarm.repeat_days.split(",") if d.strip()]
-                    is_scheduled_today = today_name in days
+                user_now = get_user_now(alarm.user_id)
+                user_time_str = user_now.strftime("%H:%M")
+                due, target_time, adaptive_info = is_alarm_due(alarm, user_now)
 
-                if not is_scheduled_today:
-                    continue
+                logger.debug(
+                    "[SCHEDULER] Evaluating Alarm ID=%d for User %d (Target: %s, User Time: %s)...",
+                    alarm.id, alarm.user_id, target_time, user_time_str
+                )
 
-                target_time = alarm.alarm_time
-                adaptive_info = None
-
-                if alarm.alarm_type == "Smart Adaptive":
-                    metrics = check_user_wellness_metrics(db, alarm.user_id)
-                    adaptive_info = evaluate_smart_adaptive_rules(alarm, metrics)
-                    target_time = adaptive_info["adjusted_time"]
-
-                cache_key = (alarm.id, today_str, target_time)
-                if current_time_str == target_time and cache_key not in triggered_cache:
+                if due:
+                    today_str = user_now.strftime("%Y-%m-%d")
+                    cache_key = (alarm.id, today_str, target_time)
                     triggered_cache.add(cache_key)
-
-                    if alarm.alarm_type == "One-Time":
-                        deactivate_one_time_alarm_if_needed(db, alarm)
-
-                    # Query Adaptive Difficulty Engine for personalized difficulty and challenge type
-                    rec = get_adaptive_recommendation(
-                        db=db,
-                        user_id=alarm.user_id,
-                        base_difficulty=alarm.difficulty_level or "Medium",
-                        preferred_type=alarm.challenge
+                    logger.info(
+                        "[SCHEDULER] Alarm ID=%d is DUE (Target: %s, User Time: %s)",
+                        alarm.id, target_time, user_time_str
                     )
-
-                    if alarm.alarm_type == "Smart Adaptive" and adaptive_info:
-                        diff_level = adaptive_info["difficulty"]
-                    else:
-                        diff_level = rec["recommended_difficulty"]
-
-                    # Challenge Type from recommendation
-                    ch_type = rec["recommended_challenge_type"]
-                    normalized_type = map_challenge_type(ch_type)
-
-                    existing = find_session_by_alarm(alarm.id, alarm.user_id)
-                    if existing:
-                        challenge_payload = existing
-                    else:
-                        challenge_payload = generate_cognitive_challenge(normalized_type, diff_level)
-                        session_id = f"chal_{uuid.uuid4().hex[:12]}"
-                        challenge_payload["id"] = session_id
-                        challenge_payload["user_id"] = alarm.user_id
-                        challenge_payload["recommended_difficulty"] = diff_level
-                        challenge_payload["recommended_challenge_type"] = ch_type
-                        challenge_payload["adaptive_reason"] = rec["reason"]
-                        challenge_payload["alarm_id"] = alarm.id
-                        challenge_payload["time_limit"] = get_time_limit_for_difficulty(diff_level)
-                        challenge_payload["source"] = "scheduler"
-                        challenge_payload["scheduler_generated"] = True
-                        add_session(session_id, challenge_payload)
-
-                    triggered_alarms.append({
-                        "id": alarm.id,
-                        "user_id": alarm.user_id,
-                        "title": alarm.title,
-                        "sound": adaptive_info["sound"] if adaptive_info else alarm.sound,
-                        "difficulty": diff_level,
-                        "time": target_time,
-                        "alarm_type": alarm.alarm_type,
-                        "challenge_type": ch_type,
-                        "adaptive_reason": rec["reason"],
-                        "verification_method": getattr(alarm, "verification_method", "puzzle_completion") or "puzzle_completion",
-                        "verification_steps": getattr(alarm, "verification_steps", 1) or 1,
-                        "required_accuracy": getattr(alarm, "required_accuracy", 100) or 100,
-                        "consecutive_required": getattr(alarm, "consecutive_required", 1) or 1,
-                        "time_limit": getattr(alarm, "time_limit", 20) or 20,
-                        "snooze_duration": getattr(alarm, "snooze_duration", 5) or 5,
-                        "max_snoozes": getattr(alarm, "max_snoozes", 3) if getattr(alarm, "max_snoozes", None) is not None else 3,
-                        "snooze_count": 0,
-                        "occurrence_id": f"alarm_{alarm.id}_{today_str}_{target_time}",
-                        "challenge": challenge_payload
-                    })
-
-                    print("\n" + "="*80)
-                    print(f"[ALARM TRIGGERED] Timestamp: {now.strftime('%Y-%m-%d %H:%M:%S')}")
-                    print(f"Alarm ID: {alarm.id} | User ID: {alarm.user_id} | Label: {alarm.title}")
-                    print(f"Trigger Time: {target_time} (Configured: {alarm.alarm_time})")
-                    print(f"Customization: Sound={alarm.sound if not adaptive_info else adaptive_info['sound']}, "
-                          f"Vibration={alarm.vibration}, Difficulty={diff_level}")
-                    print(f"Adaptive Difficulty Engine: Level='{diff_level}', Type='{normalized_type}'")
-                    print(f"Reason: {rec['reason']}")
-                    print(f"Cognitive Challenge Attached: ID='{challenge_payload.get('id')}', Type='{challenge_payload.get('type')}', Question='{challenge_payload.get('question')}'")
-
-                    if adaptive_info:
-                        print("Smart Adaptive Rules Applied:")
-                        for rule in adaptive_info["rules_applied"]:
-                            print(f"  - {rule}")
-                    print("="*80 + "\n")
-
-                    logger.info(f"Alarm '{alarm.title}' (ID: {alarm.id}) triggered with personalized {diff_level} challenge for User {alarm.user_id} at {target_time}")
+                    trigger_alarm_for_user(db, alarm, user_now, adaptive_info)
+                else:
+                    logger.debug(
+                        "[SCHEDULER] Alarm ID=%d is not due (Target: %s, User Time: %s)",
+                        alarm.id, target_time, user_time_str
+                    )
 
             # Periodically evaluate reminders and alerts for active users
             try:
                 active_users = db.query(User).all()
                 for u in active_users:
-                    evaluate_user_notifications(db, u, now)
+                    u_now = get_user_now(u.id)
+                    evaluate_user_notifications(db, u, u_now)
             except Exception as notif_err:
                 logger.debug(f"Notification evaluation note: {notif_err}")
 

@@ -1,5 +1,5 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from fastapi.security import OAuth2PasswordBearer
@@ -130,9 +130,24 @@ def get_upcoming_alarms(db: Session = Depends(get_db), current_user: User = Depe
     return sorted_alarms
 
 @router.get("/triggered")
-def get_triggered_alarms(current_user: Optional[User] = Depends(get_optional_user)):
+def get_triggered_alarms(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
     import scheduler
+    client_offset = None
+    offset_hdr = request.headers.get("X-Timezone-Offset")
+    if offset_hdr:
+        try:
+            client_offset = int(offset_hdr.strip())
+        except ValueError:
+            pass
+
     if current_user:
+        # Check and trigger any due alarms for this user in real time
+        scheduler.check_and_trigger_user_due_alarms(db, current_user.id, client_offset)
+
         alarms = [a for a in scheduler.triggered_alarms if a.get("user_id") == current_user.id or a.get("user_id") is None]
         scheduler.triggered_alarms = [a for a in scheduler.triggered_alarms if not (a.get("user_id") == current_user.id or a.get("user_id") is None)]
     else:

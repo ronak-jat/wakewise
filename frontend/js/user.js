@@ -18,7 +18,9 @@ function getAuthHeaders() {
 
     return {
         'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
+        'Authorization': token ? `Bearer ${token}` : '',
+        'X-Timezone-Offset': String(-new Date().getTimezoneOffset()),
+        'X-Timezone': (Intl && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'Asia/Kolkata'
     };
 }
 
@@ -71,6 +73,56 @@ function getAlarmAudioElement() {
     }
     return audio;
 }
+
+// Web Audio API synthesizer pulse fallback
+function playSynthesizerBeep() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.8);
+    } catch (e) {
+        console.warn('[AUDIO] Synthesizer pulse note:', e);
+    }
+}
+
+// Pre-prime audio permission on user interaction
+(function setupAudioAutoplayUnlocker() {
+    const unlock = () => {
+        try {
+            const audio = getAlarmAudioElement();
+            if (audio) {
+                audio.muted = true;
+                const p = audio.play();
+                if (p && typeof p.then === 'function') {
+                    p.then(() => {
+                        audio.pause();
+                        audio.muted = false;
+                        audio.currentTime = 0;
+                    }).catch(() => {});
+                }
+            }
+        } catch (_) {}
+        document.removeEventListener('click', unlock);
+        document.removeEventListener('keydown', unlock);
+        document.removeEventListener('touchstart', unlock);
+    };
+    document.addEventListener('click', unlock, { once: true });
+    document.addEventListener('keydown', unlock, { once: true });
+    document.addEventListener('touchstart', unlock, { once: true });
+})();
 
 let currentRingingAlarm = null;
 let activeCognitiveChallenge = null;
@@ -189,6 +241,7 @@ function triggerAlarmSound(alarm) {
     currentRingingAlarm = alarm;
     window.isWakeUpVerified = false;
 
+    console.log(`[AUDIO] Sound playback attempted for alarm ID: ${alarm.id}, Sound: ${alarm.sound || 'Radar'}`);
     console.log("🔔 ALARM TRIGGERED:", alarm.title || alarm.id);
 
     // Extract or default verification configuration (Default to 3-question Multi-Step)
@@ -239,11 +292,17 @@ function triggerAlarmSound(alarm) {
                 console.log("🔊 ALARM AUDIO PLAYING SUCCESSFULLY");
             })
             .catch(error => {
-                console.error("❌ ALARM AUDIO FAILED:", error.name, error.message);
+                console.error("❌ ALARM AUDIO FAILED (Autoplay restrictions or asset load):", error.name, error.message);
+
+                // Start synthesizer pulse fallback so alarm is still audible
+                if (!synthPulseInterval) {
+                    synthPulseInterval = setInterval(playSynthesizerBeep, 1500);
+                    playSynthesizerBeep();
+                }
 
                 Toast.show(
                     'Alarm Sound Blocked',
-                    'Click anywhere on the page to start the alarm sound.',
+                    'Click anywhere on the page to unlock the alarm sound.',
                     'warning',
                     6000
                 );
@@ -255,8 +314,13 @@ function triggerAlarmSound(alarm) {
                         audio.volume = 1.0;
                         await audio.play();
                         console.log("🔊 ALARM AUDIO UNLOCKED AND PLAYING");
+                        if (synthPulseInterval) {
+                            clearInterval(synthPulseInterval);
+                            synthPulseInterval = null;
+                        }
                         document.removeEventListener('click', unlockAudio);
                         document.removeEventListener('keydown', unlockAudio);
+                        document.removeEventListener('touchstart', unlockAudio);
                     } catch (err) {
                         console.error("❌ Audio still blocked:", err);
                     }
@@ -264,6 +328,7 @@ function triggerAlarmSound(alarm) {
 
                 document.addEventListener('click', unlockAudio);
                 document.addEventListener('keydown', unlockAudio);
+                document.addEventListener('touchstart', unlockAudio);
             });
     }
 
@@ -717,11 +782,13 @@ async function checkAlarmTriggers() {
         if (response.ok) {
             const triggered = await response.json();
             if (Array.isArray(triggered) && triggered.length > 0) {
+                console.log(`[ALARM MONITOR] Polled /api/alarms/triggered: received ${triggered.length} triggered alarm(s)`);
                 const alarmItem = triggered[0];
                 const now = new Date();
                 const cacheKey = `alarm-${alarmItem.id}-${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}:${now.getMinutes()}`;
                 if (!alarmTriggerCache.has(cacheKey) && !currentRingingAlarm) {
                     alarmTriggerCache.add(cacheKey);
+                    console.log(`[ALARM MONITOR] Triggering alarm UI and sound for Alarm ID: ${alarmItem.id} ("${alarmItem.title}")`);
                     triggerAlarmSound(alarmItem);
                 }
             }
