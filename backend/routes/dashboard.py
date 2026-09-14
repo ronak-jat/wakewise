@@ -92,7 +92,7 @@ def _minutes_to_hhmm(minutes: Optional[float]) -> Optional[str]:
 
 @router.get("/overview", response_model=DashboardOverviewResponse)
 def get_dashboard_overview(
-    request: Optional[Request] = None,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -219,7 +219,7 @@ def get_dashboard_overview(
 
 @router.get("/alarm-history", response_model=AlarmHistoryResponse)
 def get_alarm_history(
-    request: Optional[Request] = None,
+    request: Request,
     filter_type: str = Query("7days", description="Filter: today, 7days, 30days, custom"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD) for custom filter"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD) for custom filter"),
@@ -353,7 +353,7 @@ def get_alarm_history(
 @router.get("/wake-up-statistics", response_model=WakeUpStatisticsResponse)
 @router.get("/wake-time-consistency", response_model=WakeUpStatisticsResponse)
 def get_wake_up_statistics(
-    request: Optional[Request] = None,
+    request: Request,
     days: int = Query(30, ge=1, le=90, description="Window in days (7 or 30)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
