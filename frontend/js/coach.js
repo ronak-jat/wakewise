@@ -139,7 +139,7 @@ function renderOptimalPatientsTable(wellnessData) {
         .sort((a, b) => (b.habit_score || 0) - (a.habit_score || 0));
 
     if (optimalPatients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">No patients currently in optimal range (&ge;75%).</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 16px;">No users currently in optimal range (&ge;75%).</td></tr>';
         return;
     }
 
@@ -249,13 +249,13 @@ function populatePatientSelects() {
 
     const habitPatientSelect = document.getElementById('habit-patient-select');
     if (habitPatientSelect) {
-        habitPatientSelect.innerHTML = `<option value="0" ${currentCoachHabitPatientId === 0 ? 'selected' : ''}>All Patients (Aggregate)</option>`;
+        habitPatientSelect.innerHTML = `<option value="0" ${currentCoachHabitPatientId === 0 ? 'selected' : ''}>All Users (Aggregate)</option>`;
         if (registeredPatients.length > 0) {
             registeredPatients.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.id;
                 if (currentCoachHabitPatientId === p.id) opt.selected = true;
-                opt.textContent = `${p.name || 'Patient'} (${p.email})`;
+                opt.textContent = `${p.name || 'User'} (${p.email})`;
                 habitPatientSelect.appendChild(opt);
             });
         }
@@ -268,11 +268,11 @@ function renderHelpList(wellnessData) {
     tbody.innerHTML = '';
 
     if (!registeredPatients || registeredPatients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">No patients found in database.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">No users found in database.</td></tr>';
         return;
     }
 
-    // Filter to ONLY patients with sub-optimal / bad sleep or habit score (< 75)
+    // Filter to ONLY users with sub-optimal / bad sleep or habit score (< 75)
     const reviewPatients = registeredPatients
         .filter(p => {
             const hScore = p.habit_score !== undefined && p.habit_score !== null ? p.habit_score : (wellnessData?.habit_score ?? 100);
@@ -282,11 +282,11 @@ function renderHelpList(wellnessData) {
         .sort((a, b) => (a.habit_score || 0) - (b.habit_score || 0)); // Worst scores first
 
     if (reviewPatients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">All active patients currently meet optimal sleep & habit thresholds.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">All active users currently meet optimal sleep & habit thresholds.</td></tr>';
         return;
     }
 
-    // Display only patients requiring review
+    // Display only users requiring review
     reviewPatients.forEach(p => {
         const tr = document.createElement('tr');
         const scoreNum = p.habit_score !== undefined && p.habit_score !== null ? Math.round(p.habit_score) : 0;
@@ -317,7 +317,7 @@ function renderPatientReports(wellnessData, sleepTrendsData) {
     tbody.innerHTML = '';
 
     if (registeredPatients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">No patient reports found in database.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 16px;">No user reports found in database.</td></tr>';
         return;
     }
 
@@ -442,7 +442,7 @@ async function submitRecommendation(patientIdentifier, notes) {
     }
 
     if (!targetPatient) {
-        Toast.show('Invalid Patient', 'Could not identify target patient.', 'danger', 2500);
+        Toast.show('Invalid User', 'Could not identify target user.', 'danger', 2500);
         return false;
     }
 
@@ -601,7 +601,7 @@ function initCoachCharts(wellnessData, sleepTrendsData, challengeData, sleepQual
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Patient Sleep Quality Score (%)',
+                    label: 'User Sleep Quality Score (%)',
                     data: dataVals,
                     backgroundColor: dataVals.map(v => v >= 85 ? '#10b981' : (v >= 70 ? '#3b82f6' : '#f59e0b')),
                     borderRadius: 6
@@ -780,8 +780,8 @@ function renderCoachHabitAnalytics(data) {
             badgeEl.className = 'badge badge-primary';
         }
     } else {
-        if (nameEl) nameEl.textContent = 'All Patients (Aggregate Overview)';
-        if (emailEl) emailEl.textContent = `${registeredPatients.length} registered patient profiles`;
+        if (nameEl) nameEl.textContent = 'All Users (Aggregate Overview)';
+        if (emailEl) emailEl.textContent = `${registeredPatients.length} registered user profiles`;
         if (bedEl) bedEl.textContent = data.sleep_adherence?.target_bedtime || '23:00 (Avg)';
         if (wakeEl) wakeEl.textContent = data.wake_up_consistency?.target_wake_time || '07:00 (Avg)';
         if (inactEl) inactEl.textContent = '15m (Std)';
@@ -1119,9 +1119,9 @@ window.exportCoachReport = async (format = 'pdf') => {
         csv += `Export Date,${dateStr} ${timeStr}\r\n`;
         csv += `Advisor Name,"${(session.name || 'Wellness Advisor').replace(/"/g, '""')}"\r\n`;
         csv += `Email,"${(session.email || 'coach@wakewise.ai').replace(/"/g, '""')}"\r\n`;
-        csv += `Total Assigned Patients,${registeredPatients.length}\r\n\r\n`;
+        csv += `Total Assigned Users,${registeredPatients.length}\r\n\r\n`;
 
-        csv += '--- REGISTERED PATIENTS REGISTRY ---\r\n';
+        csv += '--- REGISTERED USERS REGISTRY ---\r\n';
         csv += 'User ID,Name,Email,Target Bedtime,Target Wake Time,Inactivity Threshold (mins),Habit Score\r\n';
         registeredPatients.forEach(p => {
             csv += `"${p.id}","${(p.name || '').replace(/"/g, '""')}","${(p.email || '').replace(/"/g, '""')}","${p.target_bedtime || '23:00'}","${p.target_wake_time || '07:00'}","${p.inactivity_threshold_minutes || 30}","${p.habit_score || 0}%"\r\n`;
@@ -1129,7 +1129,7 @@ window.exportCoachReport = async (format = 'pdf') => {
         csv += '\r\n';
 
         csv += '--- DISPATCHED ADVISOR RECOMMENDATIONS ---\r\n';
-        csv += 'Timestamp,Patient,Recommendation Note,Status\r\n';
+        csv += 'Timestamp,User,Recommendation Note,Status\r\n';
         coachRecommendationLogs.forEach(l => {
             csv += `"${l.date}","${(l.patient || '').replace(/"/g, '""')}","${(l.notes || '').replace(/"/g, '""')}","${l.status || 'Active'}"\r\n`;
         });
@@ -1143,7 +1143,7 @@ window.exportCoachReport = async (format = 'pdf') => {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        Toast.show('CSV Downloaded', 'Coach patient registry CSV saved successfully.', 'success', 2500);
+        Toast.show('CSV Downloaded', 'Coach user registry CSV saved successfully.', 'success', 2500);
 
     } else if (fmt === 'excel' || fmt === 'xlsx' || fmt === 'xls') {
         let excel = `<?xml version="1.0"?>
@@ -1158,15 +1158,15 @@ window.exportCoachReport = async (format = 'pdf') => {
   <Style ss:ID="Title"><Font ss:Bold="1" ss:Size="14" ss:Color="#107C41"/></Style>
   <Style ss:ID="Subheader"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#16A34A" ss:Pattern="Solid"/></Style>
  </Styles>
- <Worksheet ss:Name="Patient Directory">
+ <Worksheet ss:Name="User Directory">
   <Table>
    <Row><Cell ss:StyleID="Title"><Data ss:Type="String">WakeWise AI - Wellness Coach Diagnostic Ledger</Data></Cell></Row>
    <Row><Cell><Data ss:Type="String">Advisor: ${escapeXmlCoach(session.name || 'Coach')} (${escapeXmlCoach(session.email || '')})</Data></Cell></Row>
-   <Row><Cell><Data ss:Type="String">Date: ${dateStr} ${timeStr} | Patients: ${registeredPatients.length}</Data></Cell></Row>
+   <Row><Cell><Data ss:Type="String">Date: ${dateStr} ${timeStr} | Users: ${registeredPatients.length}</Data></Cell></Row>
    <Row></Row>
    <Row ss:StyleID="Header">
-    <Cell><Data ss:Type="String">Patient ID</Data></Cell>
-    <Cell><Data ss:Type="String">Patient Name</Data></Cell>
+    <Cell><Data ss:Type="String">User ID</Data></Cell>
+    <Cell><Data ss:Type="String">User Name</Data></Cell>
     <Cell><Data ss:Type="String">Email</Data></Cell>
     <Cell><Data ss:Type="String">Target Bedtime</Data></Cell>
     <Cell><Data ss:Type="String">Target Wake</Data></Cell>
@@ -1177,7 +1177,7 @@ window.exportCoachReport = async (format = 'pdf') => {
             excel += `
    <Row>
     <Cell><Data ss:Type="Number">${p.id}</Data></Cell>
-    <Cell><Data ss:Type="String">${escapeXmlCoach(p.name || 'Patient')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXmlCoach(p.name || 'User')}</Data></Cell>
     <Cell><Data ss:Type="String">${escapeXmlCoach(p.email || '')}</Data></Cell>
     <Cell><Data ss:Type="String">${escapeXmlCoach(p.target_bedtime || '23:00')}</Data></Cell>
     <Cell><Data ss:Type="String">${escapeXmlCoach(p.target_wake_time || '07:00')}</Data></Cell>
@@ -1236,7 +1236,7 @@ window.exportCoachReport = async (format = 'pdf') => {
     <div class="header">
         <div>
             <div class="logo">🩺 WakeWise AI - Wellness Coach Portal</div>
-            <div style="font-size: 12px; color: #475569; margin-top: 4px;">Patient Clinical Summary & Behavioral Ledger</div>
+            <div style="font-size: 12px; color: #475569; margin-top: 4px;">User Summary & Behavioral Ledger</div>
         </div>
         <div class="meta">
             <div><strong>Coach:</strong> ${escapeXmlCoach(session.name || 'Advisor')} (${escapeXmlCoach(session.email || '')})</div>
@@ -1247,7 +1247,7 @@ window.exportCoachReport = async (format = 'pdf') => {
     <div class="stats-grid">
         <div class="stat-box">
             <h4>${registeredPatients.length}</h4>
-            <p>Monitored Patients</p>
+            <p>Monitored Users</p>
         </div>
         <div class="stat-box">
             <h4>${coachRecommendationLogs.length}</h4>
@@ -1259,12 +1259,12 @@ window.exportCoachReport = async (format = 'pdf') => {
         </div>
     </div>
 
-    <h3>Registered Patient Registry (${registeredPatients.length})</h3>
+    <h3>Registered User Registry (${registeredPatients.length})</h3>
     <table>
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Patient Name</th>
+                <th>User Name</th>
                 <th>Email</th>
                 <th>Target Bedtime</th>
                 <th>Target Wake</th>
@@ -1272,10 +1272,10 @@ window.exportCoachReport = async (format = 'pdf') => {
             </tr>
         </thead>
         <tbody>
-            ${registeredPatients.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No patients registered.</td></tr>' : registeredPatients.map(p => `
+            ${registeredPatients.length === 0 ? '<tr><td colspan="6" style="text-align:center;">No users registered.</td></tr>' : registeredPatients.map(p => `
                 <tr>
                     <td>${p.id}</td>
-                    <td><strong>${escapeXmlCoach(p.name || 'Patient')}</strong></td>
+                    <td><strong>${escapeXmlCoach(p.name || 'User')}</strong></td>
                     <td>${escapeXmlCoach(p.email)}</td>
                     <td>${p.target_bedtime || '23:00'}</td>
                     <td>${p.target_wake_time || '07:00'}</td>

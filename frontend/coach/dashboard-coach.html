@@ -12,7 +12,7 @@
     <!-- Loader Mask -->
     <div id="loader-mask" class="loader-mask">
         <div class="spinner"></div>
-        <p>GATHERING PATIENT SLEEP METRICS...</p>
+        <p>GATHERING USER SLEEP METRICS...</p>
     </div>
 
     <div class="db-wrapper">
@@ -73,7 +73,7 @@
                 <div class="db-nav-right">
                     <div class="search-container">
                         <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search patients...">
+                        <input type="text" placeholder="Search users...">
                     </div>
                     <button class="nav-toggle-theme" title="Toggle Theme" aria-label="Toggle Theme">
                         <i class="fas fa-sun"></i>
@@ -120,7 +120,7 @@
                     <div class="db-header-summary">
                         <div class="db-greeting">
                             <h1 id="greeting-text">Welcome, <span class="grad-text">Dr. Jenkins</span></h1>
-                            <p>You have 3 patient reports requiring critical review today.</p>
+                            <p>You have 3 user reports requiring critical review today.</p>
                         </div>
                         <div class="db-time-widget">
                             <div class="time">--:--:-- --</div>
@@ -165,7 +165,7 @@
                         <!-- Chart section -->
                         <div class="glass-card primary-hover">
                             <div class="chart-header">
-                                <h3>Weekly Patient Metric Progress</h3>
+                                <h3>Weekly User Metric Progress</h3>
                                 <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="simulateCoachReport()">Generate System Report</button>
                             </div>
                             <div class="chart-container">
@@ -177,7 +177,7 @@
                         <div class="glass-card accent-hover">
                             <h3 style="margin-bottom: 20px; font-size: 1.15rem;">Action Console</h3>
                             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
-                                Issue personalized wellness advice to patients immediately.
+                                Issue personalized wellness advice to users immediately.
                             </p>
                             <button class="btn btn-primary" onclick="Modal.open('recommendation-modal')" style="width: 100%; margin-bottom: 12px;">
                                 <i class="fas fa-comment-medical"></i> Send Recommendation
@@ -223,14 +223,14 @@
                                 <table class="custom-table" id="help-table">
                                     <thead>
                                         <tr>
-                                            <th>Patient</th>
+                                            <th>User</th>
                                             <th>Habit Score</th>
                                             <th>Sleep / Schedule</th>
                                             <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="help-table-body">
-                                        <!-- Populated dynamically with patients with bad/low sleep/habit scores -->
+                                        <!-- Populated dynamically with users with bad/low sleep/habit scores -->
                                     </tbody>
                                 </table>
                             </div>
@@ -241,13 +241,13 @@
                 <!-- ================= TAB: USER REPORTS ================= -->
                 <div id="tab-reports" class="tab-content-section">
                     <div class="glass-card primary-hover" style="margin-bottom: 30px;">
-                        <h3>Patient Case Review</h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Review sleep metrics and cognitive wake performance logs for active patients.</p>
+                        <h3>User Case Review</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Review sleep metrics and cognitive wake performance logs for active users.</p>
                         <div class="table-responsive">
                             <table class="custom-table" id="all-reports-table">
                                 <thead>
                                     <tr>
-                                        <th>Patient ID</th>
+                                        <th>User ID</th>
                                         <th>Name</th>
                                         <th>Sleep Target</th>
                                         <th>Wake Inertia</th>
@@ -282,7 +282,7 @@
 
                 <!-- ================= TAB: HABIT ANALYTICS ================= -->
                 <div id="tab-analytics" class="tab-content-section">
-                    <!-- Top Control Header: Patient Filter & Period Controls -->
+                    <!-- Top Control Header: User Filter & Period Controls -->
                     <div class="glass-card primary-hover" style="margin-bottom: 24px; border: 1px solid rgba(168, 85, 247, 0.35); background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(59, 130, 246, 0.05));">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
                             <div>
@@ -298,11 +298,11 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Patient Selector & Time Window Toggles -->
+                            <!-- User Selector & Time Window Toggles -->
                             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                                 <div style="min-width: 230px;">
                                     <select id="habit-patient-select" class="form-control form-select" onchange="onHabitPatientChange(this.value)" style="padding: 7px 12px; font-size: 0.85rem; background: rgba(15,23,42,0.9); border: 1px solid rgba(168,85,247,0.4); color: #fff; border-radius: 8px;">
-                                        <option value="0">All Patients (Aggregate)</option>
+                                        <option value="0">All Users (Aggregate)</option>
                                     </select>
                                 </div>
                                 <div class="btn-group" style="display: flex; gap: 4px; background: rgba(0,0,0,0.35); padding: 4px; border-radius: 8px; border: 1px solid var(--glass-border);">
@@ -321,7 +321,7 @@
                                 </div>
                                 <div>
                                     <div style="display: flex; align-items: center; gap: 8px;">
-                                        <strong id="habit-patient-name" style="color: #fff; font-size: 0.95rem;">Select Patient</strong>
+                                        <strong id="habit-patient-name" style="color: #fff; font-size: 0.95rem;">Select User</strong>
                                         <span id="habit-patient-badge" class="badge badge-info" style="font-size: 0.72rem;">User-Wise Mode</span>
                                     </div>
                                     <span id="habit-patient-email" style="color: var(--text-secondary); font-size: 0.8rem;">Individual behavioral telemetry</span>
@@ -666,10 +666,10 @@
                 <!-- ================= TAB: RECOMMENDATIONS ================= -->
                 <div id="tab-recommendations" class="tab-content-section">
                     <div class="glass-card primary-hover" style="max-width: 600px; margin: 0 auto;">
-                        <h3 style="margin-bottom: 20px;">Issue Patient Wellness Advice</h3>
+                        <h3 style="margin-bottom: 20px;">Issue User Wellness Advice</h3>
                         <form id="recommendation-form-direct">
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label for="rec-patient">Choose Patient</label>
+                                <label for="rec-patient">Choose User</label>
                                 <select id="rec-patient" class="form-control form-select" required>
                                     <option value="" disabled selected>Loading registered users...</option>
                                 </select>
@@ -713,13 +713,13 @@
     <div id="recommendation-modal" class="modal-overlay">
         <div class="modal-container">
             <div class="modal-header">
-                <h3>Send Patient Recommendation</h3>
+                <h3>Send User Recommendation</h3>
                 <button class="modal-close-btn"><i class="fas fa-times"></i></button>
             </div>
             <form id="recommendation-form-modal">
                 <div class="modal-body">
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label for="modal-rec-patient">Choose Patient</label>
+                        <label for="modal-rec-patient">Choose User</label>
                         <select id="modal-rec-patient" class="form-control form-select" required>
                             <option value="" disabled selected>Loading registered users...</option>
                         </select>
