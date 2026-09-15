@@ -158,7 +158,7 @@
                         <div class="auth-field-group">
                             <div class="auth-field-label-row">
                                 <label for="login-password" class="auth-field-label">Password</label>
-                                <a href="#" id="forgot-password-link" class="auth-forgot-link">Forgot password?</a>
+                                <a href="forgot-password.html" id="forgot-password-link" class="auth-forgot-link">Forgot password?</a>
                             </div>
                             <div class="auth-input-wrapper">
                                 <i class="fas fa-lock auth-input-icon"></i>
@@ -199,7 +199,7 @@
 
                     <!-- Register Toggle Prompt -->
                     <div class="auth-toggle-prompt" id="register-prompt-wrapper">
-                        Don't have an account? <a href="#" id="to-register-btn">Sign up</a>
+                        Don't have an account? <a href="register.html" id="to-register-btn">Sign up</a>
                     </div>
                 </div>
 
@@ -408,15 +408,28 @@
             const loginSubmitBtn = document.getElementById('login-submit-btn');
             const regSubmitBtn = document.getElementById('reg-submit-btn');
 
-            // Handle URL auth error notices
+            // Handle URL auth notices & alerts
             const urlParams = new URLSearchParams(window.location.search);
             const authError = urlParams.get('error');
+            const isRegistered = urlParams.get('registered');
+            const isReset = urlParams.get('reset');
+            const isSessionExpired = urlParams.get('session_expired');
+
             if (authError) {
                 let errorMsg = 'Google authentication could not be completed.';
                 if (authError === 'admin_oauth_forbidden') errorMsg = 'Google Sign-In is disabled for Administrator accounts.';
                 if (authError === 'google_auth_failed') errorMsg = 'Google sign-in was canceled or encountered an issue.';
                 Toast.show('Authentication Notice', errorMsg, 'warning');
                 showInlineAlert('auth-alert', errorMsg, 'warning');
+            } else if (isRegistered) {
+                Toast.show('Account Ready', 'Registration complete! Please sign in with your new credentials.', 'success');
+                showInlineAlert('auth-alert', 'Account created successfully! Please enter your password to sign in.', 'success');
+            } else if (isReset) {
+                Toast.show('Password Reset', 'Your password has been changed successfully. Please sign in.', 'success');
+                showInlineAlert('auth-alert', 'Password updated! Please sign in with your new credentials.', 'success');
+            } else if (isSessionExpired) {
+                Toast.show('Session Expired', 'Your previous session has ended. Please sign in again.', 'info');
+                showInlineAlert('auth-alert', 'Your session expired. Please sign in to continue.', 'warning');
             }
 
             // Bind fallback Google OAuth redirect flow
@@ -449,17 +462,14 @@
             bindPasswordToggle('toggle-login-pass', 'login-password');
             bindPasswordToggle('toggle-reg-pass', 'reg-password');
 
-            // Forgot Password helper
+            // Forgot Password helper with email forwarding
             const forgotPassLink = document.getElementById('forgot-password-link');
             if (forgotPassLink) {
                 forgotPassLink.addEventListener('click', (e) => {
-                    e.preventDefault();
                     const email = document.getElementById('login-email')?.value.trim();
                     if (email) {
-                        Toast.show('Password Reset', `Password reset instructions will be sent to ${email} once confirmed.`, 'info', 4000);
-                    } else {
-                        Toast.show('Password Reset', 'Please enter your email address above to receive a password reset link.', 'info', 3500);
-                        document.getElementById('login-email')?.focus();
+                        e.preventDefault();
+                        window.location.href = `forgot-password.html?email=${encodeURIComponent(email)}`;
                     }
                 });
             }

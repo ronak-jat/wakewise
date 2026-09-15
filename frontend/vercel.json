@@ -7,6 +7,9 @@
     { "source": "/dashboard-user.html", "destination": "/user/dashboard-user.html" },
     { "source": "/dashboard-admin.html", "destination": "/admin/dashboard-admin.html" },
     { "source": "/dashboard-coach.html", "destination": "/coach/dashboard-coach.html" },
-    { "source": "/login", "destination": "/login.html" }
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/register", "destination": "/register.html" },
+    { "source": "/forgot-password", "destination": "/forgot-password.html" },
+    { "source": "/reset-password", "destination": "/reset-password.html" }
   ]
 }

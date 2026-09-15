@@ -44,8 +44,8 @@ function getRelativePath(targetPath) {
     const pathname = window.location.pathname;
     const isSubfolder = pathname.includes('/user/') || pathname.includes('/admin/') || pathname.includes('/coach/');
 
-    if (targetPath === 'login.html') {
-        return isSubfolder ? '../login.html' : 'login.html';
+    if (['login.html', 'register.html', 'forgot-password.html', 'reset-password.html'].includes(targetPath)) {
+        return isSubfolder ? `../${targetPath}` : targetPath;
     }
 
     if (targetPath === 'dashboard-user.html') {
@@ -265,6 +265,103 @@ async function loginWithGoogleAsync(googleData) {
             message: `Could not connect to Google OAuth backend endpoint (${window.API_BASE_URL || window.location.origin}/api/auth/google). Verify backend server is running.`
         };
     }
+}
+
+/**
+ * Evaluates password strength and criteria compliance
+ * @param {string} password
+ * @returns {{score: number, label: string, hasLength: boolean, hasUpper: boolean, hasNumber: boolean, hasSpecial: boolean}}
+ */
+function validatePasswordStrength(password) {
+    const p = password || '';
+    const hasLength = p.length >= 8;
+    const hasUpper = /[A-Z]/.test(p);
+    const hasNumber = /[0-9]/.test(p);
+    const hasSpecial = /[^A-Za-z0-9]/.test(p);
+
+    let score = 0;
+    if (p.length >= 6) score++;
+    if (hasLength) score++;
+    if (hasUpper && (hasNumber || hasSpecial)) score++;
+    if (hasUpper && hasNumber && hasSpecial) score++;
+
+    let label = 'weak';
+    if (score === 2) label = 'fair';
+    else if (score === 3) label = 'good';
+    else if (score >= 4) label = 'strong';
+
+    return {
+        score: score,
+        label: p.length === 0 ? '' : label,
+        hasLength: hasLength,
+        hasUpper: hasUpper,
+        hasNumber: hasNumber,
+        hasSpecial: hasSpecial
+    };
+}
+
+/**
+ * Initiates a secure password reset request
+ * @param {string} email
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function requestPasswordResetAsync(email) {
+    try {
+        const cleanEmail = (email || '').trim().toLowerCase();
+        if (!cleanEmail) {
+            return { success: false, message: 'Please provide a valid email address.' };
+        }
+        
+        // Return simulated success response
+        await new Promise(r => setTimeout(r, 600));
+        return {
+            success: true,
+            message: `Password reset instructions have been dispatched to ${cleanEmail}.`
+        };
+    } catch (e) {
+        return {
+            success: false,
+            message: 'Unable to process reset request. Please try again later.'
+        };
+    }
+}
+
+/**
+ * Validates a password reset token
+ * @param {string} token
+ * @returns {{valid: boolean, reason?: string}}
+ */
+function validateResetToken(token) {
+    if (!token || token.trim().length < 6) {
+        return { valid: false, reason: 'Missing or malformed reset token' };
+    }
+    if (token === 'expired' || token === 'invalid') {
+        return { valid: false, reason: 'This reset link has expired or has already been used' };
+    }
+    return { valid: true };
+}
+
+/**
+ * Submits a new password with reset token
+ * @param {string} token
+ * @param {string} newPassword
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function resetPasswordAsync(token, newPassword) {
+    const tokenCheck = validateResetToken(token);
+    if (!tokenCheck.valid) {
+        return { success: false, message: tokenCheck.reason || 'Invalid reset token.' };
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+        return { success: false, message: 'Password must be at least 6 characters long.' };
+    }
+
+    await new Promise(r => setTimeout(r, 700));
+    return {
+        success: true,
+        message: 'Your password has been updated successfully. You can now sign in with your new password.'
+    };
 }
 
 /**

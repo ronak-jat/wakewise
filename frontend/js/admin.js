@@ -59,6 +59,9 @@ window.switchTab = (tabId) => {
     if (tabId === 'tab-coach-assignments') {
         loadCoachAssignmentsOverview();
     }
+    if (tabId === 'tab-announcements' || tabId === 'announcements') {
+        loadAdminAnnouncements();
+    }
 
     document.body.classList.remove('sidebar-open');
 };
@@ -1052,12 +1055,30 @@ window.openCreateAnnouncementModal = (id = null) => {
         if (submitBtn) submitBtn.textContent = 'Publish Announcement';
     }
 
-    modal.classList.add('active');
+    if (typeof Modal !== 'undefined' && typeof Modal.open === 'function') {
+        Modal.open('announcement-modal');
+    } else {
+        modal.classList.add('show');
+        modal.classList.add('active');
+    }
+
+    // Auto-focus title input for easy composing
+    setTimeout(() => {
+        const titleInput = document.getElementById('announcement-title');
+        if (titleInput) titleInput.focus();
+    }, 100);
 };
 
 window.closeAnnouncementModal = () => {
-    const modal = document.getElementById('announcement-modal');
-    if (modal) modal.classList.remove('active');
+    if (typeof Modal !== 'undefined' && typeof Modal.close === 'function') {
+        Modal.close('announcement-modal');
+    } else {
+        const modal = document.getElementById('announcement-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            modal.classList.remove('active');
+        }
+    }
 };
 
 window.loadAdminAnnouncements = async () => {
@@ -1793,13 +1814,27 @@ window.openManageCoachModal = (coachId) => {
         }
     }
 
-    const modal = document.getElementById('manage-coach-assignments-modal');
-    if (modal) modal.classList.add('active');
+    if (typeof Modal !== 'undefined' && typeof Modal.open === 'function') {
+        Modal.open('manage-coach-assignments-modal');
+    } else {
+        const modal = document.getElementById('manage-coach-assignments-modal');
+        if (modal) {
+            modal.classList.add('show');
+            modal.classList.add('active');
+        }
+    }
 };
 
 window.closeManageCoachModal = () => {
-    const modal = document.getElementById('manage-coach-assignments-modal');
-    if (modal) modal.classList.remove('active');
+    if (typeof Modal !== 'undefined' && typeof Modal.close === 'function') {
+        Modal.close('manage-coach-assignments-modal');
+    } else {
+        const modal = document.getElementById('manage-coach-assignments-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            modal.classList.remove('active');
+        }
+    }
     currentManagingCoachId = null;
 };
 
