@@ -72,12 +72,21 @@ def register_user(payload: UserRegister, db: Session = Depends(get_db)):
         # 4. Hash password using BCrypt
         hashed_pwd = hash_password(payload.password)
 
-        # 5. Save into database
+        # 5. Determine normalized role
+        requested_role = (payload.role or "USER").strip()
+        if requested_role.upper() == "ADMIN":
+            target_role = "USER"
+        elif "COACH" in requested_role.upper() or "WELLNESS" in requested_role.upper():
+            target_role = "Wellness Coach"
+        else:
+            target_role = "USER"
+
+        # 6. Save into database
         new_user = User(
             name=payload.name.strip(),
             email=payload.email.lower().strip(),
             password=hashed_pwd,
-            role="USER",
+            role=target_role,
             provider=payload.provider.strip() if payload.provider else "LOCAL"
         )
         
@@ -85,10 +94,10 @@ def register_user(payload: UserRegister, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_user)
 
-        # 6. Return success response
+        # 7. Return success response
         return RegisterSuccessResponse(
             status="success",
-            message="User registered successfully in PostgreSQL database",
+            message=f"{target_role} registered successfully in PostgreSQL database",
             data=UserResponse.model_validate(new_user)
         )
 
@@ -203,17 +212,25 @@ def google_oauth_login(payload: GoogleOAuthRequest, db: Session = Depends(get_db
             random_password = secrets.token_urlsafe(16)
             hashed_pwd = hash_password(random_password)
 
+            requested_role = (payload.role or "USER").strip()
+            if requested_role.upper() == "ADMIN":
+                target_role = "USER"
+            elif "COACH" in requested_role.upper() or "WELLNESS" in requested_role.upper():
+                target_role = "Wellness Coach"
+            else:
+                target_role = "USER"
+
             user = User(
                 name=name or "Google User",
                 email=email.lower(),
                 password=hashed_pwd,
-                role=payload.role.strip() if payload.role else "USER",
+                role=target_role,
                 provider="GOOGLE"
             )
             db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info(f"Registered new Google OAuth user in PostgreSQL: {email}")
+            logger.info(f"Registered new Google OAuth user in PostgreSQL: {email} with role {user.role}")
 
         access_token = create_access_token(data={"sub": user.email, "role": user.role, "id": user.id})
         return Token(
@@ -226,86 +243,97 @@ def google_oauth_login(payload: GoogleOAuthRequest, db: Session = Depends(get_db
         logger.error(f"PostgreSQL connection error during Google OAuth: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection error during Google OAuth."
+            detail="Could not connect to PostgreSQL database. Please ensure PostgreSQL service is active."
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in Google OAuth handler: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google OAuth authentication error: {str(e)}"
         )
 
 
-@router.get("/google/login", summary="Initiate Google OAuth 2.0 Authorization Flow")
+@router.get("/google/login", summary="Initiate Google OAuth Authorization Code flow")
 def google_oauth_login_redirect(request: Request, role: str = "USER"):
     """
-    Redirects the client to Google's OAuth 2.0 consent screen.
-    Google will redirect back to the Railway backend /api/auth/google/callback endpoint.
+    Redirects user to Google OAuth consent screen with CSRF state token and requested role.
     """
-    client_id = settings.GOOGLE_CLIENT_ID
-    if not client_id:
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured on this server. Please provide GOOGLE_CLIENT_ID."
+            detail="Google OAuth is not configured on the server (missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET)."
         )
-    
-    # Callback points to the Railway backend endpoint
-    redirect_uri = settings.GOOGLE_REDIRECT_URI
-    if not redirect_uri:
-        # Fallback to current backend base URL + callback path
-        redirect_uri = f"{str(request.base_url).rstrip('/')}/api/auth/google/callback"
 
+    frontend_base = (
+        request.headers.get("origin")
+        or request.headers.get("referer")
+        or settings.FRONTEND_URL
+        or "http://localhost:8000"
+    ).rstrip("/")
+
+    redirect_uri = settings.GOOGLE_REDIRECT_URI or f"{str(request.base_url).rstrip('/')}/api/auth/google/callback"
+
+    # Build standard Google OAuth authorization URL
     params = {
-        "client_id": client_id,
+        "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": "openid email profile",
-        "access_type": "online",
+        "access_type": "offline",
+        "prompt": "select_account",
         "state": role
     }
-    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
-    return RedirectResponse(url=google_auth_url)
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
+    return RedirectResponse(url=auth_url)
 
 
-@router.get("/google/callback", summary="Google OAuth 2.0 Backend Callback Endpoint")
+@router.get("/google/callback", summary="Handle Google OAuth Authorization Code exchange")
 async def google_oauth_callback(
     request: Request,
     code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
-    state: Optional[str] = Query("USER"),
     db: Session = Depends(get_db)
 ):
     """
-    Callback endpoint that receives authorization code from Google, exchanges it for user credentials,
-    finds or registers the user in PostgreSQL, and redirects to the Vercel frontend dashboard with session tokens.
+    Exchanges Google authorization code for ID and access tokens,
+    retrieves user profile, upserts user in DB, generates JWT token,
+    and seamlessly redirects to the target dashboard with credentials.
     """
-    frontend_base = settings.FRONTEND_URL.rstrip('/') if settings.FRONTEND_URL else "http://localhost:8000"
-    
-    if error or not code:
-        logger.warning(f"Google OAuth callback received error or no code: error={error}")
-        return RedirectResponse(url=f"{frontend_base}/login.html?error=google_auth_failed")
+    frontend_base = (settings.FRONTEND_URL or "http://localhost:8000").rstrip("/")
 
-    redirect_uri = settings.GOOGLE_REDIRECT_URI
-    if not redirect_uri:
-        redirect_uri = str(request.url).split("?")[0]
+    if error:
+        logger.warning(f"Google OAuth returned error: {error}")
+        return RedirectResponse(url=f"{frontend_base}/login.html?error={error}")
 
-    token_url = "https://oauth2.googleapis.com/token"
-    token_payload = {
-        "code": code,
-        "client_id": settings.GOOGLE_CLIENT_ID,
-        "client_secret": settings.GOOGLE_CLIENT_SECRET,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
-    }
+    if not code:
+        return RedirectResponse(url=f"{frontend_base}/login.html?error=no_code")
+
+    redirect_uri = settings.GOOGLE_REDIRECT_URI or f"{str(request.base_url).rstrip('/')}/api/auth/google/callback"
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            token_resp = await client.post(token_url, data=token_payload)
+            token_data = {
+                "code": code,
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code"
+            }
+            token_resp = await client.post("https://oauth2.googleapis.com/token", data=token_data)
             if token_resp.status_code != 200:
                 logger.error(f"Google OAuth token exchange failed: {token_resp.text}")
                 return RedirectResponse(url=f"{frontend_base}/login.html?error=token_exchange_failed")
-            
-            token_data = token_resp.json()
-            google_access_token = token_data.get("access_token")
 
-            # Fetch user profile info
+            tokens = token_resp.json()
+            access_token_google = tokens.get("access_token")
+
+            # Fetch user info using Google access token
             userinfo_resp = await client.get(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {google_access_token}"}
+                headers={"Authorization": f"Bearer {access_token_google}"}
             )
             if userinfo_resp.status_code != 200:
                 logger.error(f"Google OAuth userinfo fetch failed: {userinfo_resp.text}")
@@ -320,8 +348,10 @@ async def google_oauth_callback(
 
             # Look up or create user in PostgreSQL
             user = db.query(User).filter(User.email == email).first()
-            target_role = (state or "USER").upper()
-            if target_role not in ("USER", "COACH"):
+            raw_target_role = (state or "USER").upper()
+            if "COACH" in raw_target_role or "WELLNESS" in raw_target_role:
+                target_role = "Wellness Coach"
+            else:
                 target_role = "USER"
 
             if user:
@@ -343,16 +373,16 @@ async def google_oauth_callback(
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-                logger.info(f"Created new Google OAuth user in DB: {email} with role {user.role}")
+                logger.info(f"Registered new Google OAuth user in PostgreSQL: {email} with role {user.role}")
 
             # Generate WakeWise JWT access token
             access_token = create_access_token(data={"sub": user.email, "role": user.role, "id": user.id})
 
             # Route user to their corresponding frontend dashboard
             role_lower = (user.role or "user").lower()
-            if role_lower == "coach":
+            if "coach" in role_lower or "wellness" in role_lower:
                 dash_path = "coach/dashboard-coach.html"
-            elif role_lower == "admin":
+            elif "admin" in role_lower:
                 dash_path = "admin/dashboard-admin.html"
             else:
                 dash_path = "user/dashboard-user.html"

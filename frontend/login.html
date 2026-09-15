@@ -519,13 +519,19 @@
                     loginTitle.textContent = 'Welcome back';
                     portalDesc.textContent = 'Sign in to continue to WakeWise';
                     emailInput.placeholder = 'e.g., user@alarm.com';
-                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'block';
+                    if (registerPromptWrapper) {
+                        registerPromptWrapper.style.display = 'block';
+                        registerPromptWrapper.innerHTML = `Don't have an account? <a href="register.html" id="to-register-btn">Sign up</a>`;
+                    }
                     if (googleWrapper) googleWrapper.style.display = 'block';
                 } else if (role === 'coach') {
                     loginTitle.textContent = 'Wellness Coach Portal';
                     portalDesc.textContent = 'Sign in to manage assigned clients & regimens';
                     emailInput.placeholder = 'e.g., coach@alarm.com';
-                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'none'; // Coaches cannot self-register; managed by Admin
+                    if (registerPromptWrapper) {
+                        registerPromptWrapper.style.display = 'block';
+                        registerPromptWrapper.innerHTML = `Don't have a coach account? <a href="register.html?role=coach" id="to-register-coach-btn">Sign up as Coach</a>`;
+                    }
                     if (googleWrapper) googleWrapper.style.display = 'block';
                     registerContainer.style.display = 'none';
                     loginContainer.style.display = 'block';

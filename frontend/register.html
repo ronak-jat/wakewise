@@ -121,6 +121,24 @@
                     </div>
 
                     <form id="register-form" autocomplete="off">
+                        <!-- Account Role / Type Selector -->
+                        <div class="auth-field-group">
+                            <label class="auth-field-label">I want to join as</label>
+                            <div class="role-selector-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px;">
+                                <div class="role-option-card active" id="card-role-user" onclick="selectRegistrationRole('USER')" style="cursor: pointer; padding: 12px 10px; border: 1.5px solid #6366f1; background: rgba(99, 102, 241, 0.12); border-radius: 10px; text-align: center; transition: all 0.2s ease;">
+                                    <div style="font-size: 1.2rem; color: #818cf8; margin-bottom: 4px;"><i class="fas fa-user"></i></div>
+                                    <strong style="display: block; font-size: 0.92rem; color: #fff;">User</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-secondary);">Sleep &amp; Wake Tracking</span>
+                                </div>
+                                <div class="role-option-card" id="card-role-coach" onclick="selectRegistrationRole('COACH')" style="cursor: pointer; padding: 12px 10px; border: 1.5px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03); border-radius: 10px; text-align: center; transition: all 0.2s ease;">
+                                    <div style="font-size: 1.2rem; color: #10b981; margin-bottom: 4px;"><i class="fas fa-user-md"></i></div>
+                                    <strong style="display: block; font-size: 0.92rem; color: #fff;">Wellness Coach</strong>
+                                    <span style="font-size: 0.72rem; color: var(--text-secondary);">Guide &amp; Review Users</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="reg-selected-role" value="USER">
+                        </div>
+
                         <div class="auth-field-group">
                             <label for="reg-name" class="auth-field-label">Full Name</label>
                             <div class="auth-input-wrapper">
@@ -261,6 +279,48 @@
             if (alertEl) alertEl.style.display = 'none';
         }
 
+        let currentSelectedRole = 'USER';
+
+        function selectRegistrationRole(role) {
+            currentSelectedRole = (role || 'USER').toUpperCase();
+            const roleInput = document.getElementById('reg-selected-role');
+            if (roleInput) roleInput.value = currentSelectedRole;
+
+            const userCard = document.getElementById('card-role-user');
+            const coachCard = document.getElementById('card-role-coach');
+
+            if (currentSelectedRole === 'COACH') {
+                if (coachCard) {
+                    coachCard.style.borderColor = '#10b981';
+                    coachCard.style.background = 'rgba(16, 185, 129, 0.15)';
+                    coachCard.classList.add('active');
+                }
+                if (userCard) {
+                    userCard.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    userCard.style.background = 'rgba(255, 255, 255, 0.03)';
+                    userCard.classList.remove('active');
+                }
+            } else {
+                if (userCard) {
+                    userCard.style.borderColor = '#6366f1';
+                    userCard.style.background = 'rgba(99, 102, 241, 0.12)';
+                    userCard.classList.add('active');
+                }
+                if (coachCard) {
+                    coachCard.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    coachCard.style.background = 'rgba(255, 255, 255, 0.03)';
+                    coachCard.classList.remove('active');
+                }
+            }
+        }
+
+        // Check URL parameter for preselected role (e.g. register.html?role=coach)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialRoleParam = urlParams.get('role');
+        if (initialRoleParam && (initialRoleParam.toLowerCase() === 'coach' || initialRoleParam.toLowerCase() === 'wellness')) {
+            selectRegistrationRole('COACH');
+        }
+
         // Google GSI Handler
         window.handleGoogleCredentialResponse = async function (response) {
             if (!response || !response.credential) return;
@@ -284,14 +344,15 @@
                 token: response.credential,
                 email: googleEmail,
                 name: googleName,
-                role: 'USER'
+                role: currentSelectedRole
             });
 
             if (result.success) {
                 Toast.show('Welcome to WakeWise!', result.message, 'success');
                 showInlineAlert('Authenticated successfully! Redirecting...', 'success');
                 setTimeout(() => {
-                    window.location.href = getRelativePath('dashboard-user.html');
+                    const isCoach = (result.user?.role || '').toLowerCase().includes('coach');
+                    window.location.href = isCoach ? getRelativePath('dashboard-coach.html') : getRelativePath('dashboard-user.html');
                 }, 800);
             } else {
                 Toast.show('Google Sign-Up Failed', result.message, 'danger');
@@ -366,7 +427,7 @@
                 redirectLink.addEventListener('click', (e) => {
                     e.preventDefault();
                     const apiBase = window.API_BASE_URL || '';
-                    window.location.href = `${apiBase}/api/auth/google/login?role=USER`;
+                    window.location.href = `${apiBase}/api/auth/google/login?role=${currentSelectedRole}`;
                 });
             }
 
@@ -435,7 +496,8 @@
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> <span>Creating account...</span>';
 
-                const result = await registerUserAsync(name, email, pass, 'USER');
+                const roleToRegister = currentSelectedRole;
+                const result = await registerUserAsync(name, email, pass, roleToRegister);
 
                 if (result.success) {
                     Toast.show('Account Created!', result.message, 'success');
@@ -443,7 +505,8 @@
                     regForm.reset();
 
                     setTimeout(() => {
-                        window.location.href = 'login.html?registered=true';
+                        const redirectQuery = roleToRegister === 'COACH' ? 'role=coach&registered=true' : 'registered=true';
+                        window.location.href = `login.html?${redirectQuery}`;
                     }, 1200);
                 } else {
                     submitBtn.disabled = false;

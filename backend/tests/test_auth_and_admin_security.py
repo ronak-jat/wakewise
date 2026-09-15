@@ -107,6 +107,17 @@ class TestAuthAndAdminSecurity(unittest.TestCase):
         data = resp.json()
         self.assertEqual(data["data"]["role"].upper(), "USER")
 
+    def test_04b_coach_registration_allowed_and_normalized(self):
+        resp = self.client.post("/api/auth/register", json={
+            "name": "Coach Dr. Smith",
+            "email": "dr_smith@alarm.com",
+            "password": "coachpass123",
+            "role": "COACH"
+        })
+        self.assertEqual(resp.status_code, 201)
+        data = resp.json()
+        self.assertEqual(data["data"]["role"], "Wellness Coach")
+
     def test_05_unauthenticated_admin_api_returns_401(self):
         resp = self.client.get("/api/admin/dashboard")
         self.assertEqual(resp.status_code, 401)
