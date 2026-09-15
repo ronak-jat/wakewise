@@ -33,26 +33,6 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configure CORS middleware
-cors_origins = settings.get_allowed_origins()
-if "*" in cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"^https:\/\/.*\.vercel\.app$"),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
 # Lightweight Server-Side Timing Middleware for System Performance Monitoring
 @app.middleware("http")
 async def performance_timing_middleware(request: Request, call_next):
@@ -73,6 +53,19 @@ async def performance_timing_middleware(request: Request, call_next):
     )
 
     return response
+
+# Configure robust CORS middleware (added after HTTP middleware to become outermost layer)
+cors_origins = settings.get_allowed_origins()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"^https:\/\/(?:[a-zA-Z0-9-]+\.)*vercel\.app$"),
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=["*"],
+    expose_headers=["X-Process-Time-Ms", "Content-Disposition", "WWW-Authenticate"],
+    max_age=86400,
+)
 
 # Include Routers
 app.include_router(auth.router)

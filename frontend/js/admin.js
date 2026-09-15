@@ -1713,7 +1713,7 @@ function renderCoachAssignmentsOverview(data) {
     data.coaches.forEach(coach => {
         const tr = document.createElement('tr');
         const assignedCount = coach.assigned_count || 0;
-        const countBadge = assignedCount > 0 
+        const countBadge = assignedCount > 0
             ? `<span class="badge badge-success"><i class="fas fa-users" style="margin-right: 4px;"></i>${assignedCount} user${assignedCount > 1 ? 's' : ''}</span>`
             : `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">0 users (Unassigned)</span>`;
 
@@ -1795,7 +1795,7 @@ window.openManageCoachModal = (coachId) => {
             assignableUsers.forEach(u => {
                 const item = document.createElement('div');
                 item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05);';
-                const statusTag = u.current_coach_name 
+                const statusTag = u.current_coach_name
                     ? `<span class="badge badge-warning" style="font-size: 0.7rem; margin-left: 6px;">Currently with ${u.current_coach_name} (Will Reassign)</span>`
                     : `<span class="badge badge-secondary" style="font-size: 0.7rem; margin-left: 6px;">Unassigned</span>`;
 
