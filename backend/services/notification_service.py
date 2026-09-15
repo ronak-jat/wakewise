@@ -100,8 +100,9 @@ def _insert_notification_if_unique(
     sms_enabled: bool = False,
 ) -> Optional[Notification]:
     """
-    Inserts a notification only if it does not already exist with the same dedup_key.
-    Dispatches via active channels (Email, SMS) and records delivery audit statuses.
+    Inserts an in-app notification only if it does not already exist with the same dedup_key.
+    Dispatches via external channels (Email, SMS) in an isolated manner where external delivery
+    failures (e.g. SMTP unreachable) NEVER prevent the in-app notification from being saved.
     """
     if dedup_key:
         existing = db.query(Notification).filter(Notification.dedup_key == dedup_key).first()
@@ -111,7 +112,6 @@ def _insert_notification_if_unique(
     now = datetime.now(timezone.utc)
     email_status = None
     sms_status = None
-    delivery_status = "delivered"
 
     # Determine delivery channel tag
     if email_enabled and sms_enabled:
@@ -123,35 +123,51 @@ def _insert_notification_if_unique(
     else:
         delivery_channel = "in_app"
 
-    # 1. Dispatch Email if enabled
-    if email_enabled and user.email:
-        email_res = send_email_notification(
-            to_email=user.email,
-            subject=f"[WakeWise AI] {title}",
-            body_text=message
-        )
-        email_status = email_res.get("status", "unconfigured")
-    elif email_enabled:
-        email_status = "failed"
+    # 1. Dispatch Email if enabled (isolated from in-app storage)
+    if email_enabled:
+        if user.email:
+            try:
+                email_res = send_email_notification(
+                    to_email=user.email,
+                    subject=f"[WakeWise AI] {title}",
+                    body_text=message
+                )
+                email_status = email_res.get("status", "failed")
+            except Exception as e:
+                logger.warning(f"Email delivery exception for user {user.id}: {e}")
+                email_status = "failed"
+        else:
+            email_status = "failed"
 
-    # 2. Dispatch SMS if enabled
+    # 2. Dispatch SMS if enabled (isolated from in-app storage)
     if sms_enabled:
-        sms_text = f"WakeWise AI: {title}\n{message}"
-        sms_res = send_sms_notification(
-            to_phone=user.phone_number,
-            message=sms_text
-        )
-        sms_status = sms_res.get("status", "unconfigured")
+        if user.phone_number:
+            try:
+                sms_text = f"WakeWise AI: {title}\n{message}"
+                sms_res = send_sms_notification(
+                    to_phone=user.phone_number,
+                    message=sms_text
+                )
+                sms_status = sms_res.get("status", "failed")
+            except Exception as e:
+                logger.warning(f"SMS delivery exception for user {user.id}: {e}")
+                sms_status = "failed"
+        else:
+            sms_status = "no_phone"
 
     # Evaluate aggregate delivery status
-    if delivery_channel != "in_app":
+    if delivery_channel == "in_app":
+        delivery_status = "delivered"
+    else:
         statuses = [s for s in [email_status, sms_status] if s is not None]
         if any(s in ("delivered", "sent") for s in statuses):
             delivery_status = "delivered"
+        elif all(s == "unconfigured" for s in statuses):
+            delivery_status = "unconfigured"
+        elif all(s in ("no_phone", "unconfigured") for s in statuses):
+            delivery_status = "no_phone" if any(s == "no_phone" for s in statuses) else "unconfigured"
         elif all(s == "failed" for s in statuses):
             delivery_status = "failed"
-        elif all(s in ("unconfigured", "no_phone") for s in statuses):
-            delivery_status = "unconfigured"
         else:
             delivery_status = "delivered"
 
@@ -514,14 +530,28 @@ def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotific
         .all()
     )
 
+    # Detach scalar values so subsequent commits within loop never hit ObjectDeletedError
+    announcement_items = []
+    for ann in active_announcements:
+        announcement_items.append({
+            "id": ann.id,
+            "title": ann.title,
+            "message": ann.message,
+            "priority": ann.priority or "normal",
+            "target_role": getattr(ann, "target_role", "all") or "all",
+            "start_time": ann.start_time,
+            "end_time": ann.end_time,
+        })
+
     email_on = bool(prefs.announcement_email and prefs.preferred_channel in ("email", "both"))
     sms_on = bool(prefs.announcement_sms and prefs.preferred_channel in ("sms", "both"))
     now_norm = _normalize_dt(now)
+    user_role_upper = (user.role or "USER").upper()
 
-    for ann in active_announcements:
+    for ann in announcement_items:
         # Time window evaluation with timezone-safe normalization
-        start_norm = _normalize_dt(ann.start_time)
-        end_norm = _normalize_dt(ann.end_time)
+        start_norm = _normalize_dt(ann["start_time"])
+        end_norm = _normalize_dt(ann["end_time"])
 
         if start_norm and start_norm > now_norm:
             continue
@@ -529,10 +559,9 @@ def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotific
             continue
 
         # Target audience role check
-        target_role = getattr(ann, "target_role", "all") or "all"
+        target_role = ann["target_role"] or "all"
         target_role_lower = target_role.strip().lower()
         if target_role_lower not in ("all", "*"):
-            user_role_upper = (user.role or "USER").upper()
             if target_role_lower in ("user", "users") and "USER" not in user_role_upper:
                 continue
             elif target_role_lower in ("coach", "wellness coach") and "COACH" not in user_role_upper:
@@ -540,16 +569,16 @@ def _evaluate_platform_announcements(db: Session, user: User, prefs: UserNotific
             elif target_role_lower in ("admin", "administrator") and "ADMIN" not in user_role_upper:
                 continue
 
-        dedup_key = f"user:{user.id}:announcement:{ann.id}"
+        dedup_key = f"user:{user.id}:announcement:{ann['id']}"
         _insert_notification_if_unique(
             db=db,
             user=user,
             notif_type="platform_announcement",
-            title=f"Announcement: {ann.title}",
-            message=ann.message,
-            priority=ann.priority or "normal",
+            title=f"Announcement: {ann['title']}",
+            message=ann["message"],
+            priority=ann["priority"] or "normal",
             reference_type="announcement",
-            reference_id=str(ann.id),
+            reference_id=str(ann["id"]),
             action_url="user/notifications.html",
             dedup_key=dedup_key,
             email_enabled=email_on,
@@ -586,25 +615,32 @@ def send_coach_notification(
     now = datetime.now(timezone.utc)
     email_status = None
     sms_status = None
-    delivery_status = "delivered"
 
     # Multi-channel delivery
     if email_on and target_user.email:
-        email_res = send_email_notification(
-            to_email=target_user.email,
-            subject=f"[WakeWise AI] {notif_title}",
-            body_text=f"Hello {target_user.name},\n\nYour wellness coach {coach_name} has provided the following guidance:\n\n{notif_message}\n\nView details: {action_url or 'user/habits.html'}"
-        )
-        email_status = email_res.get("status", "unconfigured")
+        try:
+            email_res = send_email_notification(
+                to_email=target_user.email,
+                subject=f"[WakeWise AI] {notif_title}",
+                body_text=f"Hello {target_user.name},\n\nYour wellness coach {coach_name} has provided the following guidance:\n\n{notif_message}\n\nView details: {action_url or 'user/habits.html'}"
+            )
+            email_status = email_res.get("status", "failed")
+        except Exception as e:
+            logger.warning(f"Coach email dispatch error: {e}")
+            email_status = "failed"
     elif email_on:
         email_status = "failed"
 
     if sms_on and target_user.phone_number:
-        sms_res = send_sms_notification(
-            to_phone=target_user.phone_number,
-            message=f"WakeWise Coach {coach_name}: {notif_message[:140]}"
-        )
-        sms_status = sms_res.get("status", "unconfigured")
+        try:
+            sms_res = send_sms_notification(
+                to_phone=target_user.phone_number,
+                message=f"WakeWise Coach {coach_name}: {notif_message[:140]}"
+            )
+            sms_status = sms_res.get("status", "failed")
+        except Exception as e:
+            logger.warning(f"Coach SMS dispatch error: {e}")
+            sms_status = "failed"
     elif sms_on:
         sms_status = "no_phone" if not target_user.phone_number else "failed"
 
@@ -616,6 +652,21 @@ def send_coach_notification(
         delivery_channel = "sms"
     else:
         delivery_channel = "in_app"
+
+    if delivery_channel == "in_app":
+        delivery_status = "delivered"
+    else:
+        statuses = [s for s in [email_status, sms_status] if s is not None]
+        if any(s in ("delivered", "sent") for s in statuses):
+            delivery_status = "delivered"
+        elif all(s == "unconfigured" for s in statuses):
+            delivery_status = "unconfigured"
+        elif all(s in ("no_phone", "unconfigured") for s in statuses):
+            delivery_status = "no_phone" if any(s == "no_phone" for s in statuses) else "unconfigured"
+        elif all(s == "failed" for s in statuses):
+            delivery_status = "failed"
+        else:
+            delivery_status = "delivered"
 
     notif = Notification(
         user_id=target_user.id,
@@ -727,10 +778,14 @@ def dispatch_scheduled_report_notification(
 def broadcast_announcements_to_users(db: Session, now_dt: Optional[datetime] = None):
     """
     Broadcasts all active announcements to all active users immediately.
+    Extracts scalar user IDs first to isolate session commits per user.
     """
     now = now_dt or datetime.now(timezone.utc)
-    users = db.query(User).all()
-    for u in users:
+    user_ids = [uid[0] for uid in db.query(User.id).all()]
+    for uid in user_ids:
+        u = db.query(User).filter(User.id == uid).first()
+        if not u:
+            continue
         prefs = get_or_create_user_preferences(db, u.id)
         _evaluate_platform_announcements(db, u, prefs, now)
 
@@ -743,27 +798,27 @@ def evaluate_user_notifications(db: Session, user: Any, now_dt: Optional[datetim
     if not user:
         return []
 
-    if isinstance(user, int):
-        user_obj = db.query(User).filter(User.id == user).first()
-        if not user_obj:
-            return []
-        user = user_obj
+    user_id = user if isinstance(user, int) else user.id
+    user_obj = db.query(User).filter(User.id == user_id).first()
+    if not user_obj:
+        return []
 
     now = now_dt or datetime.now(timezone.utc)
-    prefs = get_or_create_user_preferences(db, user.id)
+    prefs = get_or_create_user_preferences(db, user_obj.id)
 
-    _evaluate_bedtime_reminders(db, user, prefs, now)
-    _evaluate_wakeup_reminders(db, user, prefs, now)
-    _evaluate_habit_alerts(db, user, prefs, now)
-    _evaluate_challenge_reminders(db, user, prefs, now)
-    _evaluate_progress_notifications(db, user, prefs, now)
-    _evaluate_platform_announcements(db, user, prefs, now)
+    _evaluate_bedtime_reminders(db, user_obj, prefs, now)
+    _evaluate_wakeup_reminders(db, user_obj, prefs, now)
+    _evaluate_habit_alerts(db, user_obj, prefs, now)
+    _evaluate_challenge_reminders(db, user_obj, prefs, now)
+    _evaluate_progress_notifications(db, user_obj, prefs, now)
+    _evaluate_platform_announcements(db, user_obj, prefs, now)
 
     # Return top recent notifications for the user
     return (
         db.query(Notification)
-        .filter(Notification.user_id == user.id)
+        .filter(Notification.user_id == user_obj.id)
         .order_by(desc(Notification.created_at))
         .limit(50)
         .all()
     )
+

@@ -407,10 +407,12 @@ async def alarm_scheduler_loop():
 
             # Periodically evaluate reminders and alerts for active users
             try:
-                active_users = db.query(User).all()
-                for u in active_users:
-                    u_now = get_user_now(u.id)
-                    evaluate_user_notifications(db, u, u_now)
+                user_ids = [uid[0] for uid in db.query(User.id).all()]
+                for uid in user_ids:
+                    u = db.query(User).filter(User.id == uid).first()
+                    if u:
+                        u_now = get_user_now(u.id)
+                        evaluate_user_notifications(db, u, u_now)
             except Exception as notif_err:
                 logger.debug(f"Notification evaluation note: {notif_err}")
 

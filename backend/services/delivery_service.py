@@ -1,11 +1,13 @@
 import logging
 import re
+import socket
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, Any, Optional, Tuple
 import urllib.request
 import urllib.parse
+import urllib.error
 import json
 import base64
 
@@ -65,7 +67,8 @@ def send_email_notification(
     html_content: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Dispatches a real email via SMTP if configured, or returns explicit unconfigured status.
+    Dispatches a real email via SMTP if configured, or returns explicit unconfigured/failed status.
+    Isolated with strict timeout to prevent blocking application workers when network is unreachable.
     """
     if not to_email or "@" not in to_email:
         return {"status": "failed", "detail": f"Invalid recipient email address: '{to_email}'"}
@@ -101,10 +104,12 @@ def send_email_notification(
             """
             msg.attach(MIMEText(default_html, "html"))
 
+        # 2.5 second timeout to prevent thread starvation on unreachable networks (e.g. Railway egress policies)
+        smtp_timeout = 2.5
         if settings.SMTP_PORT == 465:
-            server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=smtp_timeout)
         else:
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=smtp_timeout)
             if settings.SMTP_TLS:
                 server.starttls()
 
@@ -115,6 +120,12 @@ def send_email_notification(
         logger.info(f"Email successfully dispatched to {to_email}: '{subject}'")
         return {"status": "delivered", "detail": f"Dispatched via SMTP to {to_email}"}
 
+    except (socket.error, OSError) as net_err:
+        logger.warning(f"SMTP network unreachable / socket error for {to_email}: {net_err}")
+        return {"status": "failed", "detail": f"SMTP Network Error: {str(net_err)}"}
+    except smtplib.SMTPException as smtp_err:
+        logger.warning(f"SMTP protocol error for {to_email}: {smtp_err}")
+        return {"status": "failed", "detail": f"SMTP Protocol Error: {str(smtp_err)}"}
     except Exception as e:
         logger.warning(f"SMTP delivery failed to {to_email}: {e}")
         return {"status": "failed", "detail": f"SMTP Error: {str(e)}"}
@@ -126,6 +137,7 @@ def send_sms_notification(
 ) -> Dict[str, Any]:
     """
     Dispatches a real SMS via Twilio API if configured, or returns explicit unconfigured/no_phone status.
+    Isolated with strict timeout to prevent blocking application workers.
     """
     if not to_phone or not to_phone.strip():
         logger.info("SMS delivery skipped: User does not have a configured phone number.")
@@ -158,13 +170,17 @@ def send_sms_notification(
         req.add_header("Authorization", f"Basic {base64_auth}")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=3.0) as response:
             resp_body = response.read().decode("utf-8")
             data = json.loads(resp_body)
             sid = data.get("sid", "unknown")
             logger.info(f"SMS successfully dispatched via Twilio to {clean_phone} (SID: {sid})")
             return {"status": "delivered", "detail": f"Dispatched via Twilio (SID: {sid})"}
 
+    except (socket.error, OSError, urllib.error.URLError) as net_err:
+        logger.warning(f"Twilio SMS network error for {clean_phone}: {net_err}")
+        return {"status": "failed", "detail": f"Twilio Network Error: {str(net_err)}"}
     except Exception as e:
         logger.warning(f"Twilio SMS delivery failed to {clean_phone}: {e}")
         return {"status": "failed", "detail": f"Twilio SMS Error: {str(e)}"}
+

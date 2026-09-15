@@ -726,15 +726,17 @@ def create_admin_announcement(
     db.add(ann)
     db.commit()
     db.refresh(ann)
-    logger.info(f"Created platform announcement ID {ann.id}: '{ann.title}' (target: {target_role}) by admin {admin_user.email}")
+    ann_id = ann.id
+    logger.info(f"Created platform announcement ID {ann_id}: '{ann.title}' (target: {target_role}) by admin {admin_user.email}")
 
     if ann.is_active:
         try:
             broadcast_announcements_to_users(db)
         except Exception as e:
-            logger.warning(f"Error broadcasting announcement {ann.id}: {e}")
+            logger.warning(f"Error broadcasting announcement {ann_id}: {e}")
 
-    return _map_announcement(ann)
+    refreshed_ann = db.query(PlatformAnnouncement).filter(PlatformAnnouncement.id == ann_id).first()
+    return _map_announcement(refreshed_ann or ann)
 
 
 @router.put("/announcements/{announcement_id}", response_model=AnnouncementResponse)
@@ -786,9 +788,10 @@ def update_admin_announcement(
         try:
             broadcast_announcements_to_users(db)
         except Exception as e:
-            logger.warning(f"Error broadcasting updated announcement {ann.id}: {e}")
+            logger.warning(f"Error broadcasting updated announcement {announcement_id}: {e}")
 
-    return _map_announcement(ann)
+    refreshed_ann = db.query(PlatformAnnouncement).filter(PlatformAnnouncement.id == announcement_id).first()
+    return _map_announcement(refreshed_ann or ann)
 
 
 @router.patch("/announcements/{announcement_id}/status", response_model=AnnouncementResponse)
@@ -815,9 +818,11 @@ def toggle_admin_announcement_status(
         try:
             broadcast_announcements_to_users(db)
         except Exception as e:
-            logger.warning(f"Error broadcasting toggled announcement {ann.id}: {e}")
+            logger.warning(f"Error broadcasting toggled announcement {announcement_id}: {e}")
 
-    return _map_announcement(ann)
+    refreshed_ann = db.query(PlatformAnnouncement).filter(PlatformAnnouncement.id == announcement_id).first()
+    return _map_announcement(refreshed_ann or ann)
+
 
 
 @router.delete("/announcements/{announcement_id}", response_model=dict)
