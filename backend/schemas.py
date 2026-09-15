@@ -1086,6 +1086,7 @@ class CoachAssignedUserItem(BaseModel):
     recent_alarm_count: Optional[int] = 0
     assigned_at: Optional[datetime] = None
     assigned_by: Optional[int] = None
+    habit_breakdown: Optional[Dict[str, float]] = None
 
     class Config:
         from_attributes = True

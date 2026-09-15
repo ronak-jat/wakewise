@@ -251,7 +251,10 @@ class TestDashboardAndAnalytics(unittest.TestCase):
         self.db.add(att)
         self.db.commit()
 
-        res = self.client.get("/api/dashboard/wake-up-statistics?days=30", headers=self.user_headers)
+        res = self.client.get(
+            "/api/dashboard/wake-up-statistics?days=30",
+            headers={**self.user_headers, "X-Timezone-Offset": "0"}
+        )
         self.assertEqual(res.status_code, 200)
         data = res.json()
         self.assertEqual(data["average_scheduled_wake_time"], "07:00")

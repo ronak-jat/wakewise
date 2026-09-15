@@ -233,7 +233,8 @@ def get_assigned_users_for_coach(db: Session, coach_id: int) -> List[Dict[str, A
             "wake_up_consistency": wake_up_consistency,
             "recent_alarm_count": recent_alarm_count,
             "assigned_at": assignment.assigned_at,
-            "assigned_by": assignment.assigned_by
+            "assigned_by": assignment.assigned_by,
+            "habit_breakdown": breakdown if isinstance(breakdown, dict) else {},
         })
 
     return results

@@ -716,12 +716,10 @@ def get_wellness_dashboard(
     """
     snapshot = calculate_habit_score_snapshot(db, current_user.id, period_days=30)
     breakdown = snapshot.get("breakdown", {})
-    weights = snapshot.get("weights", HABIT_WEIGHTS)
-
-    wake_comp = round((breakdown.get("wake_up_consistency", 0.0) / (weights.get("wake_up_consistency", 0.35) * 100)) * 100, 1) if weights.get("wake_up_consistency") else 0.0
-    chal_comp = round((breakdown.get("challenge_completion", 0.0) / (weights.get("challenge_completion", 0.25) * 100)) * 100, 1) if weights.get("challenge_completion") else 0.0
-    snooze_comp = round((breakdown.get("snooze_reduction", 0.0) / (weights.get("snooze_reduction", 0.20) * 100)) * 100, 1) if weights.get("snooze_reduction") else 0.0
-    sleep_comp = round((breakdown.get("sleep_schedule_adherence", 0.0) / (weights.get("sleep_schedule_adherence", 0.20) * 100)) * 100, 1) if weights.get("sleep_schedule_adherence") else 0.0
+    wake_comp = round(float(breakdown.get("wake_up_consistency", 0.0) or 0.0), 1)
+    chal_comp = round(float(breakdown.get("challenge_completion", 0.0) or 0.0), 1)
+    snooze_comp = round(float(breakdown.get("snooze_reduction", 0.0) or 0.0), 1)
+    sleep_comp = round(float(breakdown.get("sleep_schedule_adherence", 0.0) or 0.0), 1)
 
     attempts = (
         db.query(ChallengeAttempt)

@@ -119,7 +119,7 @@ async function loadCoachDashboardData() {
     renderHelpList(wellnessData);
     renderPatientReports(wellnessData, sleepTrendsData);
     await loadCoachDispatchedLogs();
-    initCoachCharts(wellnessData, sleepTrendsData, challengeData);
+    initCoachCharts(wellnessData, sleepTrendsData, challengeData, sleepQualityData);
     loadCoachHabitAnalytics();
 }
 
@@ -480,7 +480,7 @@ async function submitRecommendation(patientIdentifier, notes) {
 }
 
 // 4. Real Chart.js Rendering
-function initCoachCharts(wellnessData, sleepTrendsData, challengeData) {
+function initCoachCharts(wellnessData, sleepTrendsData, challengeData, sleepQualityData) {
     const isDark = document.body.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#9ca3af' : '#62627a';
     const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.08)';
@@ -497,13 +497,37 @@ function initCoachCharts(wellnessData, sleepTrendsData, challengeData) {
             let sumWake = 0, sumChal = 0, sumSnooze = 0, sumSched = 0;
             let count = 0;
             registeredPatients.forEach(p => {
-                if (p.habit_breakdown) {
-                    sumWake += (p.habit_breakdown.wake_up_consistency !== undefined ? p.habit_breakdown.wake_up_consistency : 0);
-                    sumChal += (p.habit_breakdown.challenge_completion !== undefined ? p.habit_breakdown.challenge_completion : 0);
-                    sumSnooze += (p.habit_breakdown.snooze_reduction !== undefined ? p.habit_breakdown.snooze_reduction : 0);
-                    sumSched += (p.habit_breakdown.sleep_schedule_adherence !== undefined ? p.habit_breakdown.sleep_schedule_adherence : 0);
-                    count++;
+                const bd = p.habit_breakdown || {};
+                
+                // Wake Consistency
+                let wake = bd.wake_up_consistency;
+                if (wake === undefined || wake === null) {
+                    wake = (p.wake_up_consistency !== undefined && p.wake_up_consistency !== null) ? p.wake_up_consistency : (p.habit_score || 0);
                 }
+
+                // Challenge Mastery
+                let chal = bd.challenge_completion;
+                if (chal === undefined || chal === null) {
+                    chal = p.habit_score || 0;
+                }
+
+                // Snooze Control (Default 100% when no excess snoozes)
+                let snooze = bd.snooze_reduction;
+                if (snooze === undefined || snooze === null) {
+                    snooze = 100;
+                }
+
+                // Schedule Adherence
+                let sched = bd.sleep_schedule_adherence;
+                if (sched === undefined || sched === null) {
+                    sched = (p.sleep_quality_score !== null && p.sleep_quality_score !== undefined) ? p.sleep_quality_score : 80;
+                }
+
+                sumWake += Number(wake) || 0;
+                sumChal += Number(chal) || 0;
+                sumSnooze += Number(snooze) || 0;
+                sumSched += Number(sched) || 0;
+                count++;
             });
 
             if (count > 0) {
@@ -516,12 +540,15 @@ function initCoachCharts(wellnessData, sleepTrendsData, challengeData) {
             }
         } else if (wellnessData) {
             values = [
-                wellnessData.wake_up_consistency_percentage || 0,
-                wellnessData.challenge_completion_percentage || 0,
-                wellnessData.snooze_reduction_percentage || 0,
-                wellnessData.sleep_adherence_percentage || 0
+                Math.round(wellnessData.wake_up_consistency_percentage || 0),
+                Math.round(wellnessData.challenge_completion_percentage || 0),
+                Math.round(wellnessData.snooze_reduction_percentage !== undefined ? wellnessData.snooze_reduction_percentage : 100),
+                Math.round(wellnessData.sleep_adherence_percentage || 0)
             ];
         }
+
+        // If newly registered users with no alarm actions yet, ensure values are non-negative
+        values = values.map(v => Math.max(0, Math.min(100, v)));
 
         coachProgressChart = new Chart(progressCtx, {
             type: 'bar',
