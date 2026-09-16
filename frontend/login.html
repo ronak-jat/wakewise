@@ -123,10 +123,6 @@
                         <i class="fas fa-user-md"></i>
                         <span>Coach</span>
                     </button>
-                    <button type="button" class="role-tab-btn" data-role="admin" id="role-tab-admin">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Admin</span>
-                    </button>
                 </div>
 
                 <!-- LOGIN FORM CONTAINER -->
@@ -535,14 +531,6 @@
                     if (googleWrapper) googleWrapper.style.display = 'block';
                     registerContainer.style.display = 'none';
                     loginContainer.style.display = 'block';
-                } else if (role === 'admin') {
-                    loginTitle.textContent = 'Administrator Portal';
-                    portalDesc.textContent = 'Sign in to access platform governance & analytics';
-                    emailInput.placeholder = 'e.g., admin@alarm.com';
-                    if (registerPromptWrapper) registerPromptWrapper.style.display = 'none'; // Hide self-registration prompt for Admin
-                    if (googleWrapper) googleWrapper.style.display = 'none'; // Hide Google OAuth for Admin
-                    registerContainer.style.display = 'none';
-                    loginContainer.style.display = 'block';
                 }
             }
 
@@ -587,7 +575,7 @@
             const preSelectedRole = urlParams.get('role');
             const mode = urlParams.get('mode');
 
-            if (preSelectedRole && ['user', 'coach', 'admin'].includes(preSelectedRole)) {
+            if (preSelectedRole && ['user', 'coach'].includes(preSelectedRole)) {
                 setActiveRoleTab(preSelectedRole);
             } else {
                 setActiveRoleTab('user');
