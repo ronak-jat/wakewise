@@ -6,6 +6,11 @@
 let alarms = [];
 let alarmMonitorInterval = null;
 let alarmTriggerCache = new Set();
+let currentRingingAlarm = null;
+window.currentRingingAlarm = null;
+let activeCognitiveChallenge = null;
+let selectedChallengeOption = null;
+let memoryTimer = null;
 // API Base URL is globally configured in window.API_BASE_URL
 
 
@@ -229,6 +234,7 @@ window.stopAlarmSound = () => {
         synthPulseInterval = null;
     }
     currentRingingAlarm = null;
+    window.currentRingingAlarm = null;
     activeCognitiveChallenge = null;
     selectedChallengeOption = null;
     stopChallengeTimer();
@@ -321,12 +327,13 @@ function triggerAlarmSound(alarm) {
     resetChallengeModalDisplay();
 
     // Prevent duplicate triggers if an alarm is already actively ringing
-    if (currentRingingAlarm) {
+    if (currentRingingAlarm || window.currentRingingAlarm) {
         console.log("⚠️ Alarm already ringing. Ignoring duplicate trigger for:", alarm.title || alarm.id);
         return;
     }
 
     currentRingingAlarm = alarm;
+    window.currentRingingAlarm = alarm;
     window.isWakeUpVerified = false;
 
     console.log(`[AUDIO] Sound playback attempted for alarm ID: ${alarm.id}, Sound: ${alarm.sound || 'Radar'}`);
@@ -864,7 +871,7 @@ function startAlarmMonitor() {
 
 async function checkAlarmTriggers() {
     // If an alarm is already ringing, do not poll or trigger another one
-    if (currentRingingAlarm) return;
+    if (currentRingingAlarm || window.currentRingingAlarm) return;
 
     // Backend Scheduler is the single source of truth for triggered alarms
     try {
@@ -878,7 +885,7 @@ async function checkAlarmTriggers() {
                 const alarmItem = triggered[0];
                 const now = new Date();
                 const cacheKey = `alarm-${alarmItem.id}-${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${now.getHours()}:${now.getMinutes()}`;
-                if (!alarmTriggerCache.has(cacheKey) && !currentRingingAlarm) {
+                if (!alarmTriggerCache.has(cacheKey) && !currentRingingAlarm && !window.currentRingingAlarm) {
                     alarmTriggerCache.add(cacheKey);
                     console.log(`[ALARM MONITOR] Triggering alarm UI and sound for Alarm ID: ${alarmItem.id} ("${alarmItem.title}")`);
                     triggerAlarmSound(alarmItem);
@@ -2169,6 +2176,10 @@ async function fetchHabitScoreData(periodDays = 7) {
     }
 }
 
+const loadHabitScoreData = fetchHabitScoreData;
+window.loadHabitScoreData = fetchHabitScoreData;
+window.fetchHabitScoreData = fetchHabitScoreData;
+
 async function fetchBehavioralAnalyticsData() {
     try {
         const headers = getAuthHeaders();
@@ -3138,14 +3149,25 @@ async function loadProductivityInsightsData() {
 
 // Master loader triggered on page mount, tab change, or alarm verification completion
 async function refreshAllDashboardAnalytics() {
+    const safeCall = (fn, ...args) => {
+        try {
+            if (typeof fn === 'function') {
+                return fn(...args);
+            }
+        } catch (err) {
+            console.warn('Skipping analytics loader due to error:', err);
+        }
+        return Promise.resolve();
+    };
+
     await Promise.allSettled([
-        loadUserDashboardOverview(),
-        loadWakeUpStatistics(7),
-        loadCategorizedRecommendations(),
-        loadChallengePerformanceMetrics(),
-        loadProductivityInsightsData(),
-        loadBehavioralAnalyticsData(),
-        loadHabitScoreData(7)
+        safeCall(loadUserDashboardOverview),
+        safeCall(loadWakeUpStatistics, 7),
+        safeCall(loadCategorizedRecommendations),
+        safeCall(loadChallengePerformanceMetrics),
+        safeCall(loadProductivityInsightsData),
+        safeCall(loadBehavioralAnalyticsData),
+        safeCall(typeof fetchHabitScoreData === 'function' ? fetchHabitScoreData : (typeof loadHabitScoreData === 'function' ? loadHabitScoreData : null), 7)
     ]);
 }
 
