@@ -2,6 +2,14 @@
    INTELLIGENT COGNITIVE ALARM PLATFORM - UTILITIES AND INTERFACE CONTROLLER
    ========================================================================== */
 
+// Global Alarm State Safe Initialization
+if (typeof window.currentRingingAlarm === 'undefined') {
+    window.currentRingingAlarm = null;
+}
+if (typeof window.isWakeUpVerified === 'undefined') {
+    window.isWakeUpVerified = false;
+}
+
 // Toast Notifications System
 class ToastManager {
     constructor() {

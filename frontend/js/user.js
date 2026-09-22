@@ -6,8 +6,9 @@
 let alarms = [];
 let alarmMonitorInterval = null;
 let alarmTriggerCache = new Set();
-let currentRingingAlarm = null;
+var currentRingingAlarm = null;
 window.currentRingingAlarm = null;
+var isCheckingAlarmTriggers = false;
 let activeCognitiveChallenge = null;
 let selectedChallengeOption = null;
 let memoryTimer = null;
@@ -570,7 +571,8 @@ function showWakefulnessScreen() {
         });
     });
     panel.querySelector('#submit-wakefulness-btn').addEventListener('click', async () => {
-        const alarm = currentRingingAlarm;
+        const alarm = currentRingingAlarm || window.currentRingingAlarm;
+        if (!alarm) return;
         const feedback = panel.querySelector('#wakefulness-feedback');
         try {
             const response = await fetch(`${window.API_BASE_URL}/api/alarms/${alarm.id}/wakefulness`, {
@@ -597,8 +599,8 @@ function showAlarmActionScreen() {
     if (submitButton) submitButton.style.display = 'none';
 
     const panel = document.getElementById('wakefulness-panel');
-    if (!panel || !currentRingingAlarm) return;
-    const alarm = currentRingingAlarm;
+    const alarm = currentRingingAlarm || window.currentRingingAlarm;
+    if (!panel || !alarm) return;
     const snoozeCount = Number(alarm.snooze_count || 0);
     const maxSnoozes = Number(alarm.max_snoozes ?? 3);
     panel.innerHTML = `<h3>You're awake! What would you like to do?</h3>
@@ -612,6 +614,7 @@ function showAlarmActionScreen() {
             method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ session_id: sessionId })
         });
         if (!response.ok) return;
+        window.isWakeUpVerified = true;
         stopAlarmSound();
         Modal.close('challenge-modal');
         fetchAlarmsFromServer();
@@ -624,6 +627,7 @@ function showAlarmActionScreen() {
                 body: JSON.stringify({ session_id: currentVerificationState.sessionId, snooze_count: snoozeCount })
             });
             if (!response.ok) return;
+            window.isWakeUpVerified = true;
             stopAlarmSound();
             Modal.close('challenge-modal');
             fetchAlarmsFromServer();
@@ -712,7 +716,7 @@ async function handleChallengeTimeout() {
                 user_answer: '',
                 time_taken: timeTaken,
                 is_timeout: true,
-                alarm_id: currentRingingAlarm ? currentRingingAlarm.id : null
+                alarm_id: (currentRingingAlarm || window.currentRingingAlarm) ? (currentRingingAlarm || window.currentRingingAlarm).id : null
             })
         });
 
@@ -870,9 +874,11 @@ function startAlarmMonitor() {
 }
 
 async function checkAlarmTriggers() {
-    // If an alarm is already ringing, do not poll or trigger another one
+    // If an alarm is already ringing or a check is in-flight, do not poll
+    if (isCheckingAlarmTriggers) return;
     if (currentRingingAlarm || window.currentRingingAlarm) return;
 
+    isCheckingAlarmTriggers = true;
     // Backend Scheduler is the single source of truth for triggered alarms
     try {
         const response = await fetch(`${window.API_BASE_URL}/api/alarms/triggered`, {
@@ -894,6 +900,8 @@ async function checkAlarmTriggers() {
         }
     } catch (e) {
         // Backend not reachable or no session, keep waiting
+    } finally {
+        isCheckingAlarmTriggers = false;
     }
 }
 
@@ -1516,7 +1524,7 @@ if (submitChallengeBtn) {
                     user_answer: userAnswer,
                     time_taken: timeTaken,
                     is_timeout: false,
-                    alarm_id: currentRingingAlarm ? currentRingingAlarm.id : null
+                    alarm_id: (currentRingingAlarm || window.currentRingingAlarm) ? (currentRingingAlarm || window.currentRingingAlarm).id : null
                 })
             });
 
@@ -2065,10 +2073,11 @@ function reportUserActivityHeartbeat() {
 });
 
 async function fetchHabitScoreData(periodDays = 7) {
+    const days = parseInt(periodDays, 10) || 7;
     try {
         const headers = getAuthHeaders();
         const [scoreRes, weeklyRes, sleepRes] = await Promise.all([
-            fetch(`${window.API_BASE_URL}/api/analytics/habit-score?period_days=${periodDays}`, { headers }),
+            fetch(`${window.API_BASE_URL}/api/analytics/habit-score?period_days=${days}`, { headers }),
             fetch(`${window.API_BASE_URL}/api/analytics/habit-score/weekly`, { headers }),
             fetch(`${window.API_BASE_URL}/api/analytics/sleep-adherence`, { headers })
         ]);
@@ -2176,8 +2185,12 @@ async function fetchHabitScoreData(periodDays = 7) {
     }
 }
 
-const loadHabitScoreData = fetchHabitScoreData;
-window.loadHabitScoreData = fetchHabitScoreData;
+async function loadHabitScoreData(periodDays = 7) {
+    if (typeof fetchHabitScoreData === 'function') {
+        return fetchHabitScoreData(periodDays);
+    }
+}
+window.loadHabitScoreData = loadHabitScoreData;
 window.fetchHabitScoreData = fetchHabitScoreData;
 
 async function fetchBehavioralAnalyticsData() {
@@ -3152,7 +3165,9 @@ async function refreshAllDashboardAnalytics() {
     const safeCall = (fn, ...args) => {
         try {
             if (typeof fn === 'function') {
-                return fn(...args);
+                return Promise.resolve(fn(...args)).catch(err => {
+                    console.warn('Skipping analytics loader due to error:', err);
+                });
             }
         } catch (err) {
             console.warn('Skipping analytics loader due to error:', err);
@@ -3167,7 +3182,7 @@ async function refreshAllDashboardAnalytics() {
         safeCall(loadChallengePerformanceMetrics),
         safeCall(loadProductivityInsightsData),
         safeCall(loadBehavioralAnalyticsData),
-        safeCall(typeof fetchHabitScoreData === 'function' ? fetchHabitScoreData : (typeof loadHabitScoreData === 'function' ? loadHabitScoreData : null), 7)
+        safeCall(typeof loadHabitScoreData === 'function' ? loadHabitScoreData : (typeof fetchHabitScoreData === 'function' ? fetchHabitScoreData : null), 7)
     ]);
 }
 
@@ -3416,7 +3431,7 @@ function escapeXmlReport(str) {
 
 // Anti-bypass window guard: prevent closing/reloading while verification is active
 window.addEventListener('beforeunload', (e) => {
-    if (window.currentRingingAlarm && window.isWakeUpVerified !== true) {
+    if ((window.currentRingingAlarm || currentRingingAlarm) && window.isWakeUpVerified !== true) {
         e.preventDefault();
         e.returnValue = 'Wake-Up Verification in progress! Complete the challenge to silence the alarm.';
         return e.returnValue;
