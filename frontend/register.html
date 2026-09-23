@@ -7,8 +7,6 @@
     <title>Sign Up — WakeWise AI Intelligent Cognitive Alarm Platform</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css?v=1.1.0">
-    <!-- Official Google Identity Services SDK -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body data-theme="dark" class="auth-page-body">
@@ -223,10 +221,7 @@
                             <span>OR</span>
                         </div>
 
-                        <!-- Official Google Identity Services Container -->
-                        <div id="google-register-button-container" class="google-btn-container"></div>
-
-                        <!-- Fallback / Direct Google Redirect Button -->
+                        <!-- Custom WakeWise Google OAuth Button -->
                         <button type="button" id="google-redirect-link" class="auth-google-direct-btn">
                             <svg viewBox="0 0 24 24" width="18" height="18">
                                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -360,27 +355,7 @@
             }
         };
 
-        window.addEventListener('load', () => {
-            if (window.google && google.accounts && google.accounts.id) {
-                google.accounts.id.initialize({
-                    client_id: window.GOOGLE_CLIENT_ID,
-                    callback: handleGoogleCredentialResponse,
-                    auto_select: false
-                });
 
-                const regGoogleContainer = document.getElementById("google-register-button-container");
-                if (regGoogleContainer) {
-                    google.accounts.id.renderButton(regGoogleContainer, {
-                        theme: "filled_blue",
-                        size: "large",
-                        width: "360",
-                        type: "standard",
-                        shape: "pill",
-                        text: "signup_with"
-                    });
-                }
-            }
-        });
 
         document.addEventListener('DOMContentLoaded', () => {
             const regForm = document.getElementById('register-form');

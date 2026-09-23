@@ -59,7 +59,7 @@ cors_origins = settings.get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", r"^https:\/\/(?:[a-zA-Z0-9-]+\.)*vercel\.app$"),
+    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", None),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],

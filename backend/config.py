@@ -6,7 +6,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     APP_NAME: str = "AI Alarm Platform API"
-    DEBUG: bool = True
+    DEBUG: bool = False
     
     # PostgreSQL Connection String
     _raw_db_url: str = os.getenv(
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     # Server & Environment Settings
     PORT: int = int(os.getenv("PORT", "8000"))
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://wakewise-nine.vercel.app")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "")
     
     # JWT & Password Hashing Settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key-change-this-in-production-123456789")
@@ -36,13 +36,12 @@ class Settings(BaseSettings):
     # CORS Allowed Origins
     ALLOWED_ORIGINS: str = os.getenv(
         "ALLOWED_ORIGINS", 
-        "https://wakewise-nine.vercel.app,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,http://127.0.0.1:3000"
+        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,http://127.0.0.1:3000"
     )
 
     def get_allowed_origins(self) -> list[str]:
         """Returns list of unique allowed origins for CORS, including FRONTEND_URL and production domains."""
         origins = {
-            "https://wakewise-nine.vercel.app",
             "http://localhost:8000",
             "http://127.0.0.1:8000",
             "http://localhost:5500",
