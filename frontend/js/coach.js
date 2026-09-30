@@ -353,11 +353,11 @@ async function loadCoachDispatchedLogs() {
             headers: getAuthHeaders()
         });
         if (resp.ok) {
-            const data = await resp.json();
+            const data = await resp.json().catch(() => ({ logs: [] }));
             coachRecommendationLogs = (data.logs || []).map(l => ({
                 date: l.time_ago || (l.created_at ? new Date(l.created_at).toLocaleString() : 'Recently'),
-                patient: `${l.patient_name} (${l.patient_email})`,
-                notes: l.message,
+                patient: `${l.patient_name || 'User'} (${l.patient_email || 'N/A'})`,
+                notes: l.message || '',
                 status: (l.delivery_status || 'Delivered').toUpperCase()
             }));
             localStorage.setItem('coach_recommendations', JSON.stringify(coachRecommendationLogs));
@@ -380,11 +380,22 @@ function renderMessageLogs() {
 
     coachRecommendationLogs.forEach(l => {
         const tr = document.createElement('tr');
+        const st = (l.status || 'DELIVERED').toUpperCase();
+        let badgeClass = 'badge-success';
+        let iconClass = 'fa-check-double';
+        if (st === 'FAILED') {
+            badgeClass = 'badge-danger';
+            iconClass = 'fa-exclamation-triangle';
+        } else if (st === 'UNCONFIGURED' || st === 'PENDING') {
+            badgeClass = 'badge-warning';
+            iconClass = 'fa-clock';
+        }
+
         tr.innerHTML = `
-            <td><span style="font-size:0.8rem; color:var(--text-muted);">${l.date}</span></td>
+            <td><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(l.date)}</span></td>
             <td><strong>${escapeHtml(l.patient)}</strong></td>
             <td style="font-size:0.85rem; color:var(--text-secondary);">${escapeHtml(l.notes)}</td>
-            <td><span class="badge badge-success"><i class="fas fa-check-double" style="margin-right:4px;"></i> ${l.status || 'DELIVERED'}</span></td>
+            <td><span class="badge ${badgeClass}"><i class="fas ${iconClass}" style="margin-right:4px;"></i> ${escapeHtml(st)}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -463,18 +474,24 @@ async function submitRecommendation(patientIdentifier, notes) {
         });
 
         if (resp.ok) {
-            const data = await resp.json();
-            Toast.show('Advice Transmitted', `Successfully delivered advice recommendations to ${targetPatient.name || targetPatient.email}.`, 'success', 3000);
-            await loadCoachDispatchedLogs();
+            const data = await resp.json().catch(() => ({}));
+            Toast.show('Message Sent', `Message sent successfully to ${targetPatient.name || targetPatient.email || 'user'}.`, 'success', 3000);
+            
+            // Secondary refresh operation: isolate errors so failure in logs fetch does not affect message send result
+            try {
+                await loadCoachDispatchedLogs();
+            } catch (refreshErr) {
+                console.warn('Secondary coach dispatched logs refresh failed (message was successfully created):', refreshErr);
+            }
             return true;
         } else {
             const errData = await resp.json().catch(() => ({}));
-            Toast.show('Delivery Failed', errData.detail || 'Could not deliver recommendation notification.', 'danger', 3500);
+            Toast.show('Failed to send message', errData.detail || 'Could not deliver recommendation notification.', 'danger', 3500);
             return false;
         }
     } catch (err) {
         console.error('Error submitting coach recommendation:', err);
-        Toast.show('Network Error', 'Failed to reach notification server.', 'danger', 3000);
+        Toast.show('Failed to send message', 'Failed to reach notification server.', 'danger', 3000);
         return false;
     }
 }

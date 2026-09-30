@@ -595,9 +595,11 @@ class TestNotificationsSystem(unittest.TestCase):
         resp = self.client.post("/api/notifications/coach", json=coach_payload, headers=self.coach_headers)
         self.assertEqual(resp.status_code, 201)
         data = resp.json()
+        self.assertTrue(data.get("success", False))
         self.assertEqual(data["user_id"], self.user.id)
         self.assertEqual(data["type"], "coach_recommendation")
         self.assertEqual(data["title"], "Morning Routine Optimization")
+        self.assertEqual(data["delivery_status"], "delivered")
         self.assertIn("cardio", data["message"])
         notif_id = data["id"]
 
@@ -608,6 +610,7 @@ class TestNotificationsSystem(unittest.TestCase):
         self.assertEqual(db_notif.type, "coach_recommendation")
         self.assertEqual(db_notif.reference_type, "coach")
         self.assertEqual(db_notif.reference_id, str(self.coach.id))
+        self.assertEqual(db_notif.delivery_status, "delivered")
         self.assertFalse(db_notif.is_read)
 
         # 3. Coach fetches dispatched history
@@ -617,6 +620,7 @@ class TestNotificationsSystem(unittest.TestCase):
         self.assertGreaterEqual(hist_data["total"], 1)
         self.assertEqual(hist_data["logs"][0]["patient_name"], "Alice Test")
         self.assertEqual(hist_data["logs"][0]["patient_email"], "alice@test.com")
+        self.assertEqual(hist_data["logs"][0]["delivery_status"], "delivered")
 
         # 4. Target user logs in and fetches notifications
         user_notifs_resp = self.client.get("/api/notifications/", headers=self.user_headers)
@@ -641,6 +645,35 @@ class TestNotificationsSystem(unittest.TestCase):
         self.db.expire_all()
         refreshed_notif = self.db.query(Notification).filter(Notification.id == notif_id).first()
         self.assertTrue(refreshed_notif.is_read)
+
+    def test_14b_coach_message_validation_and_errors(self):
+        """Test validation and error handling for coach messaging."""
+        # 1. Empty message content -> 400
+        bad_payload = {
+            "user_id": self.user.id,
+            "message": "   ",
+            "title": "Empty Message"
+        }
+        res_empty = self.client.post("/api/notifications/coach", json=bad_payload, headers=self.coach_headers)
+        self.assertEqual(res_empty.status_code, 400)
+
+        # 2. Non-existent recipient -> 404
+        bad_recipient_payload = {
+            "user_id": 99999,
+            "message": "Hello ghost user",
+            "title": "Ghost"
+        }
+        res_404 = self.client.post("/api/notifications/coach", json=bad_recipient_payload, headers=self.coach_headers)
+        self.assertIn(res_404.status_code, [403, 404])
+
+        # 3. Unauthorized sender (normal user trying to use coach endpoint) -> 403
+        user_attempt_payload = {
+            "user_id": self.user.id,
+            "message": "Unauthorized attempt",
+            "title": "Test"
+        }
+        res_unauth = self.client.post("/api/notifications/coach", json=user_attempt_payload, headers=self.user_headers)
+        self.assertEqual(res_unauth.status_code, 403)
 
     def test_15_platform_announcements_audience_targeting_and_timezones(self):
         """Test Admin Platform Announcements with audience role targeting, dates, and active filtering."""

@@ -773,6 +773,7 @@ class AdminAlarmListResponse(BaseModel):
 # ==========================================
 
 class NotificationResponse(BaseModel):
+    success: bool = True
     id: int
     user_id: Optional[int] = None
     type: str # bedtime, wake_up, habit_alert, challenge, progress, platform_announcement, report_delivery

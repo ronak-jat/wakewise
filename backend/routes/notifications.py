@@ -44,6 +44,7 @@ router = APIRouter(prefix="/api/notifications", tags=["Notification & Reminder S
 
 def _map_notification(n: Notification) -> NotificationResponse:
     return NotificationResponse(
+        success=True,
         id=n.id,
         user_id=n.user_id,
         type=n.type,

@@ -653,20 +653,10 @@ def send_coach_notification(
     else:
         delivery_channel = "in_app"
 
-    if delivery_channel == "in_app":
-        delivery_status = "delivered"
-    else:
-        statuses = [s for s in [email_status, sms_status] if s is not None]
-        if any(s in ("delivered", "sent") for s in statuses):
-            delivery_status = "delivered"
-        elif all(s == "unconfigured" for s in statuses):
-            delivery_status = "unconfigured"
-        elif all(s in ("no_phone", "unconfigured") for s in statuses):
-            delivery_status = "no_phone" if any(s == "no_phone" for s in statuses) else "unconfigured"
-        elif all(s == "failed" for s in statuses):
-            delivery_status = "failed"
-        else:
-            delivery_status = "delivered"
+    # In-app message notification is created and stored in PostgreSQL for the user.
+    # Therefore, primary delivery to the user's account is confirmed ("delivered").
+    # Channel-specific external dispatch results are stored in email_status and sms_status.
+    delivery_status = "delivered"
 
     notif = Notification(
         user_id=target_user.id,
