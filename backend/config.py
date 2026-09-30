@@ -36,13 +36,14 @@ class Settings(BaseSettings):
     # CORS Allowed Origins
     ALLOWED_ORIGINS: str = os.getenv(
         "ALLOWED_ORIGINS", 
-        "http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,http://127.0.0.1:3000"
+        "http://localhost:8000,https://wakewise.dev,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000,http://127.0.0.1:3000"
     )
 
     def get_allowed_origins(self) -> list[str]:
         """Returns list of unique allowed origins for CORS, including FRONTEND_URL and production domains."""
         origins = {
             "http://localhost:8000",
+            
             "http://127.0.0.1:8000",
             "http://localhost:5500",
             "http://127.0.0.1:5500",
