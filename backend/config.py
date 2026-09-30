@@ -43,7 +43,7 @@ class Settings(BaseSettings):
         """Returns list of unique allowed origins for CORS, including FRONTEND_URL and production domains."""
         origins = {
             "http://localhost:8000",
-            
+            "https://wakewise.dev",
             "http://127.0.0.1:8000",
             "http://localhost:5500",
             "http://127.0.0.1:5500",
