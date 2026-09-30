@@ -30,12 +30,10 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-
-
 class TestAuthAndAdminSecurity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        app.dependency_overrides[get_db] = override_get_db
         Base.metadata.create_all(bind=test_engine)
         cls.client = TestClient(app)
 

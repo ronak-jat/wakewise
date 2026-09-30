@@ -117,13 +117,17 @@ def register_user(payload: UserRegister, db: Session = Depends(get_db)):
         )
 
 @router.post("/login", response_model=Token, summary="Authenticate user & return JWT token")
-def login_user(payload: UserLogin, db: Session = Depends(get_db)):
+def login_user(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
     """
     Authenticates registered user credentials against PostgreSQL DB.
     """
+    origin = request.headers.get("origin", "direct")
+    email_clean = payload.email.lower().strip()
+    logger.info(f"Authentication attempt for user: '{email_clean}' from origin: '{origin}'")
     try:
-        user = db.query(User).filter(User.email == payload.email.lower()).first()
+        user = db.query(User).filter(User.email == email_clean).first()
         if not user or not verify_password(payload.password, user.password):
+            logger.warning(f"Failed login attempt for user: '{email_clean}' - invalid credentials (origin: '{origin}')")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
@@ -131,6 +135,7 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)):
             )
         
         access_token = create_access_token(data={"sub": user.email, "role": user.role, "id": user.id})
+        logger.info(f"User authenticated successfully: ID={user.id}, role='{user.role}' (origin: '{origin}')")
         return Token(
             access_token=access_token,
             token_type="bearer",
@@ -140,7 +145,7 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)):
         logger.error(f"PostgreSQL connection error during login: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Could not connect to PostgreSQL database. Please check PostgreSQL password in backend/.env or start PostgreSQL service."
+            detail="Could not connect to PostgreSQL database. Please check PostgreSQL connection configuration."
         )
     except HTTPException:
         raise

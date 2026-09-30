@@ -36,8 +36,17 @@
                 global.API_BASE_URL = 'http://127.0.0.1:8000';
             }
         } else {
-            // Production deployment (e.g. Vercel)
-            global.API_BASE_URL = 'https://web-production-de20d.up.railway.app';
+            // Production deployment (Railway unified backend/frontend server)
+            // When accessed via Railway domain or custom domain (wakewise.dev), use same-origin relative API calls ('')
+            if (hostname === 'wakewise.dev' || 
+                hostname === 'www.wakewise.dev' || 
+                hostname === 'web-production-de20d.up.railway.app' || 
+                hostname.endsWith('.railway.app') ||
+                hostname.endsWith('.up.railway.app')) {
+                global.API_BASE_URL = '';
+            } else {
+                global.API_BASE_URL = 'https://web-production-de20d.up.railway.app';
+            }
         }
     }
 

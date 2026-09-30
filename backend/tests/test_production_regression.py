@@ -103,13 +103,13 @@ class TestProductionRegression(unittest.TestCase):
         self.user_token = create_access_token(data={"sub": self.user.email, "role": self.user.role, "id": self.user.id})
         self.user_headers = {
             "Authorization": f"Bearer {self.user_token}",
-            "Origin": "https://wakewise-nine.vercel.app"
+            "Origin": "https://wakewise.dev"
         }
 
         self.admin_token = create_access_token(data={"sub": self.admin.email, "role": self.admin.role, "id": self.admin.id})
         self.admin_headers = {
             "Authorization": f"Bearer {self.admin_token}",
-            "Origin": "https://wakewise-nine.vercel.app"
+            "Origin": "https://wakewise.dev"
         }
 
     def tearDown(self):
@@ -122,7 +122,7 @@ class TestProductionRegression(unittest.TestCase):
         resp = self.client.post("/api/auth/login", json={
             "email": "alice@test.com",
             "password": self.raw_password
-        }, headers={"Origin": "https://wakewise-nine.vercel.app"})
+        }, headers={"Origin": "https://wakewise.dev"})
         
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -136,7 +136,7 @@ class TestProductionRegression(unittest.TestCase):
         resp = self.client.post("/api/auth/login", json={
             "email": "alice@test.com",
             "password": "WrongPassword999!"
-        }, headers={"Origin": "https://wakewise-nine.vercel.app"})
+        }, headers={"Origin": "https://wakewise.dev"})
         
         self.assertEqual(resp.status_code, 401)
         self.assertEqual(resp.json()["detail"], "Incorrect email or password")
@@ -275,24 +275,24 @@ class TestProductionRegression(unittest.TestCase):
         self.assertEqual(count_2, 1)
 
     def test_08_cors_headers_on_authenticated_and_options_requests(self):
-        """Verifies CORS headers for Vercel production frontend origin on all key endpoints."""
+        """Verifies CORS headers for custom domain frontend origin on all key endpoints."""
         # 1. OPTIONS preflight
         opt_resp = self.client.options(
             "/api/admin/announcements",
             headers={
-                "Origin": "https://wakewise-nine.vercel.app",
+                "Origin": "https://wakewise.dev",
                 "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "authorization,content-type"
             }
         )
         self.assertEqual(opt_resp.status_code, 200)
-        self.assertEqual(opt_resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(opt_resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
         self.assertEqual(opt_resp.headers.get("access-control-allow-credentials"), "true")
 
         # 2. Authenticated GET /api/notifications/
         notif_resp = self.client.get("/api/notifications/", headers=self.user_headers)
         self.assertEqual(notif_resp.status_code, 200)
-        self.assertEqual(notif_resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(notif_resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
 
         # 3. Authenticated POST /api/admin/announcements
         post_resp = self.client.post(
@@ -301,7 +301,7 @@ class TestProductionRegression(unittest.TestCase):
             headers=self.admin_headers
         )
         self.assertEqual(post_resp.status_code, 201)
-        self.assertEqual(post_resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(post_resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
 
 
 if __name__ == "__main__":

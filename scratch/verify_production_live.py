@@ -9,7 +9,7 @@ def test_health():
     print("Testing /api/health...")
     for attempt in range(12):
         try:
-            req = urllib.request.Request(f"{BASE_URL}/api/health", headers={"Origin": "https://wakewise-nine.vercel.app"})
+            req = urllib.request.Request(f"{BASE_URL}/api/health", headers={"Origin": "https://wakewise.dev"})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 print(f"Status: {resp.status}")
                 print(f"Allow-Origin: {resp.headers.get('Access-Control-Allow-Origin')}")
@@ -27,7 +27,7 @@ def test_preflight():
         req = urllib.request.Request(
             f"{BASE_URL}/api/admin/announcements",
             headers={
-                "Origin": "https://wakewise-nine.vercel.app",
+                "Origin": "https://wakewise.dev",
                 "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "authorization,content-type"
             },
@@ -51,7 +51,7 @@ def test_invalid_login_safe():
             data=payload,
             headers={
                 "Content-Type": "application/json",
-                "Origin": "https://wakewise-nine.vercel.app"
+                "Origin": "https://wakewise.dev"
             },
             method="POST"
         )

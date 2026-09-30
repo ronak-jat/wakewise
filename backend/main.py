@@ -33,15 +33,23 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Lightweight Server-Side Timing Middleware for System Performance Monitoring
+# Lightweight Server-Side Timing & Diagnostic Middleware for System Performance & CORS Monitoring
 @app.middleware("http")
 async def performance_timing_middleware(request: Request, call_next):
     start_time = time.perf_counter()
+    origin = request.headers.get("origin", "")
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start_time) * 1000.0
 
     # Attach timing header
     response.headers["X-Process-Time-Ms"] = f"{duration_ms:.2f}"
+
+    # Safe diagnostic logging for API requests and CORS origins (never logs sensitive payload or headers)
+    if origin or request.url.path.startswith("/api/"):
+        logger.info(
+            f"HTTP {request.method} {request.url.path} -> {response.status_code} "
+            f"({duration_ms:.2f}ms) | origin={origin or 'none'}"
+        )
 
     # Record to metrics collector for API response time measurements
     # (omits query params and sensitive bodies)
@@ -56,10 +64,12 @@ async def performance_timing_middleware(request: Request, call_next):
 
 # Configure robust CORS middleware (added after HTTP middleware to become outermost layer)
 cors_origins = settings.get_allowed_origins()
+allow_origin_regex = (settings.ALLOWED_ORIGIN_REGEX or "").strip() or None
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=os.getenv("ALLOWED_ORIGIN_REGEX", None),
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],

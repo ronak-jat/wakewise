@@ -5,7 +5,7 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = settings.DATABASE_URL
+DATABASE_URL = getattr(settings, "clean_database_url", settings.DATABASE_URL or "").strip()
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 

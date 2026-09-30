@@ -36,15 +36,15 @@ class TestProductionCORS(unittest.TestCase):
         cls.admin_token = create_access_token(data={"sub": admin.email, "role": admin.role, "id": admin.id})
         cls.admin_headers = {
             "Authorization": f"Bearer {cls.admin_token}",
-            "Origin": "https://wakewise-nine.vercel.app"
+            "Origin": "https://wakewise.dev"
         }
         db.close()
 
     def test_cors_health_endpoint(self):
-        """GET /api/health from production Vercel frontend receives CORS allow-origin."""
-        resp = self.client.get("/api/health", headers={"Origin": "https://wakewise-nine.vercel.app"})
+        """GET /api/health from production custom domain receives CORS allow-origin."""
+        resp = self.client.get("/api/health", headers={"Origin": "https://wakewise.dev"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
         self.assertEqual(resp.headers.get("access-control-allow-credentials"), "true")
 
     def test_cors_preflight_options_admin_announcements(self):
@@ -52,13 +52,13 @@ class TestProductionCORS(unittest.TestCase):
         resp = self.client.options(
             "/api/admin/announcements",
             headers={
-                "Origin": "https://wakewise-nine.vercel.app",
+                "Origin": "https://wakewise.dev",
                 "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "authorization,content-type"
             }
         )
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
         self.assertIn("POST", resp.headers.get("access-control-allow-methods", ""))
         self.assertEqual(resp.headers.get("access-control-allow-credentials"), "true")
 
@@ -66,31 +66,31 @@ class TestProductionCORS(unittest.TestCase):
         """GET /api/admin/announcements without token returns 401 WITH CORS headers."""
         resp = self.client.get(
             "/api/admin/announcements",
-            headers={"Origin": "https://wakewise-nine.vercel.app"}
+            headers={"Origin": "https://wakewise.dev"}
         )
         self.assertEqual(resp.status_code, 401)
         # Verify CORS headers are preserved even on 401 error
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
         self.assertEqual(resp.headers.get("access-control-allow-credentials"), "true")
 
     def test_cors_admin_announcements_authenticated(self):
         """GET /api/admin/announcements with Admin token returns 200 with CORS headers."""
         resp = self.client.get("/api/admin/announcements", headers=self.admin_headers)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
         self.assertEqual(resp.headers.get("access-control-allow-credentials"), "true")
 
     def test_cors_notifications_endpoint(self):
         """GET /api/notifications/ returns CORS headers."""
         resp = self.client.get("/api/notifications/", headers=self.admin_headers)
         self.assertIn(resp.status_code, [200, 401])
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
 
     def test_cors_admin_coach_assignments(self):
         """GET /api/admin/coach-assignments returns CORS headers."""
         resp = self.client.get("/api/admin/coach-assignments", headers=self.admin_headers)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-nine.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise.dev")
 
     def test_cors_localhost_origins_supported(self):
         """Localhost origins remain supported for development."""
@@ -98,11 +98,11 @@ class TestProductionCORS(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.headers.get("access-control-allow-origin"), "http://localhost:8000")
 
-    def test_cors_vercel_preview_regex_supported(self):
-        """Vercel preview branch domains match the regex."""
-        resp = self.client.get("/api/health", headers={"Origin": "https://wakewise-preview-test123.vercel.app"})
+    def test_cors_railway_origin_supported(self):
+        """Railway production origin receives CORS allow-origin."""
+        resp = self.client.get("/api/health", headers={"Origin": "https://web-production-de20d.up.railway.app"})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://wakewise-preview-test123.vercel.app")
+        self.assertEqual(resp.headers.get("access-control-allow-origin"), "https://web-production-de20d.up.railway.app")
 
     def test_cors_disallows_untrusted_origins(self):
         """Untrusted external origins do not receive allow-origin header."""
